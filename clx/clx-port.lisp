@@ -69,7 +69,7 @@
       (with-slots (display screen window height-pixels width-pixels
 		   stipple-gc default-grab-cursor color-p port-name) port
 	(setf port-name (list host display-number nscreen))
-	(setf display #-Allegro (xlib:open-display host :display display-number)
+	(setf display #-Allegro (xlib:open-default-display)
 		      #+Allegro (open-display-with-auth host :display-number display-number))
 	(fill-keycode->modifier-state display)
 	(fill-clim-modifier-key-index->x-state display)
