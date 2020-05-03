@@ -1,22 +1,22 @@
 
 (in-package #:asdf-user)
 
-(defsystem #:clim-tos
+(defsystem #:clim
   :description "CLIM 2 implementation released by Franz Inc."
   :license "BSD-4-Clause"
-  :depends-on (#:clim-tos/core))
+  :depends-on (#:clim/core))
 
-(defsystem #:clim-tos/all
+(defsystem #:clim/all
   :description "All default packages for demo."
-  :depends-on (#:clim-tos
-               #:clim-tos/clx-backend
-               #:clim-tos/examples
-               #:clim-tos/homegrown))
+  :depends-on (#:clim
+               #:clim/clx-backend
+               #:clim/examples
+               #:clim/homegrown))
 
 ;;; based on `clim-standalone' in sys/sysdcl.lisp
-(defsystem #:clim-tos/core
+(defsystem #:clim/core
   :description "Core functionality (doesn't contain backends)."
-  :depends-on (#:clim-tos/silica)
+  :depends-on (#:clim/silica)
   :components ((:module "clim"
                         :components
                         (;; Basic tools
@@ -105,7 +105,7 @@
                          (:file "stream-trampolines")))))
 
 ;;; based on `clim-utils'
-(defsystem #:clim-tos/utils
+(defsystem #:clim/utils
   :depends-on (#:closer-mop
                #:trivial-gray-streams
                #:bordeaux-threads)
@@ -139,8 +139,8 @@
                          (:file "designs")))))
 
 ;;; based on `clim-silica'
-(defsystem #:clim-tos/silica
-  :depends-on (#:clim-tos/utils
+(defsystem #:clim/silica
+  :depends-on (#:clim/utils
                #:closer-mop
                #:alexandria)
   :components
@@ -176,8 +176,8 @@
              (:file "db-slider")
              (:file "scroll-pane")))))
 
-(defsystem #:clim-tos/homegrown
-  :depends-on (#:clim-tos/silica)
+(defsystem #:clim/homegrown
+  :depends-on (#:clim/silica)
   :components
   ((:module "homegrown"
   	    :components
@@ -190,13 +190,13 @@
   	     (:file "db-text")
   	     (:file "last")))))
 
-(defsystem #:clim-tos/postscript
+(defsystem #:clim/postscript
   :description "Draw-only backend as defined in the specification.")
 
 ;;; based on `clx-clim' in clx/sysdcl.lisp
-(defsystem #:clim-tos/clx-backend
+(defsystem #:clim/clx-backend
   :description "Reference backend for X-Window system."
-  :depends-on (#:clx #:clim-tos/core)
+  :depends-on (#:clx #:clim/core)
   :components
   ((:module "clx"
 	    :components
@@ -208,10 +208,10 @@
 	     (:file "clx-frames")))))
 
 ;;; based on `clim-test' in test/sysdcl.lisp
-(defsystem #:clim-tos/tests
+(defsystem #:clim/tests
   :description "CLIM tests (framework and definitions)."
-  :depends-on (#:clim-tos/core
-               #:clim-tos/examples)
+  :depends-on (#:clim/core
+               #:clim/examples)
   :serial t
   :components
   ((:module "test"
@@ -224,9 +224,9 @@
              (:file "postscript-tests")))))
 
 ;;; based on `clim-demo' in demo/sysdcl.lisp
-(defsystem #:clim-tos/examples
-  :description "Applications bundled in clim-tos repository."
-  :depends-on (#:clim-tos/core
+(defsystem #:clim/examples
+  :description "Applications bundled in clim repository."
+  :depends-on (#:clim/core
                #:bordeaux-threads)
 
   :components
@@ -248,7 +248,7 @@
              ;(:file "graphics-editor" :depends-on ("demo-driver"))
              ))))
 
-(defmethod perform :after ((op load-op) (c (eql (find-system :clim-tos))))
+(defmethod perform :after ((op load-op) (c (eql (find-system :clim))))
   (pushnew :clim *features*)
   (pushnew :clim-2 *features*)
   (pushnew :clim-2.1 *features*)
