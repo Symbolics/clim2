@@ -16,7 +16,7 @@ code.
 The Franz release was relatively recent by Lisp standards. It decends
 from the original CLIM put out by the lisp vendors like Symbolics and
 Franz. Because there were no freely available versions,
-[McCLIM](https://github.com/McCLIM/McCLIM] was created as a community
+[McCLIM](https://github.com/McCLIM/McCLIM) was created as a community
 project.
 
 Which one to use depends on your goals. If you need a version of CLIM
