@@ -33,7 +33,7 @@
 (defmethod print-object ((queue queue) stream)
   "Print a queue object"
   (print-unreadable-object (queue stream :type t :identity t)
-    (format stream "element-type: ~A" (queue-contents-type queue))))
+    (cl:format stream "element-type: ~A" (queue-contents-type queue))))
 
 ;;;
 ;;; Utility Macros
@@ -78,8 +78,7 @@
   "return a list of all the queue contents"
   (copy-list (queue-head queue)))
 
-(defgeneric map-over-queue (function queue)
-  (declare (dynamic-extent function)))
+(defgeneric map-over-queue (function queue))
 
 (defmethod map-over-queue (function (queue queue))
   (declare (dynamic-extent function))

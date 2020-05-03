@@ -92,6 +92,13 @@
 
 ;;; Translation between CLIM and CLX graphics model
 
+(defun nyi ()
+  (error "This CLX CLIM operation is NYI (Not Yet Implemented)."))
+
+(defun clim-internals::make-stipple-array (height width bytes)
+  (make-array (list height width) :element-type '(unsigned-byte 1)
+              :initial-contents bytes))
+
 (defun make-stipple-image (height width patterns)
   (xlib:create-image :width width :height height
 		     :data (clim-internals::make-stipple-array height width patterns)
@@ -100,109 +107,109 @@
 (defvar *clx-luminosity-stipples*
 	(mapcar #'(lambda (entry)
 		    (cons (first entry) (apply #'make-stipple-image (second entry))))
-		'((0.1 (8 16 (#b0111111111111111
-			      #b1111110111111111
-			      #b1111111111110111
-			      #b1101111111111111
-			      #b1111111101111111
-			      #b1111111111111101
-			      #b1111011111111111
-			      #b1111111111011111)))
-		  (0.2 (8 8 (#b01111111
-			     #b11101111
-			     #b11111101
-			     #b10111111
-			     #b11110111
-			     #b11111110
-			     #b11011111
-			     #b11111011)))
-		  (0.3 (4 4 (#b0111
-			     #b1101
-			     #b1011
-			     #b1110)))
-		  (0.4 (3 3 (#b011
-			     #b101
-			     #b110)))
-		  (0.6 (2 2 (#b01
-			     #b10)))
-		  (0.7 (3 3 (#b100
-			     #b010
-			     #b001)))
-		  (0.8 (4 4 (#b1000
-			     #b0010
-			     #b0100
-			     #b0001)))
-		  (0.9 (8 8 (#b10000000
-			     #b00010000
-			     #b00000010
-			     #b01000000
-			     #b00001000
-			     #b00000001
-			     #b00100000
-			     #b00000100)))
-		  (0.95 (8 16 (#b1000000000000000
-			       #b0000001000000000
-			       #b0000000000001000
-			       #b0010000000000000
-			       #b0000000010000000
-			       #b0000000000000010
-			       #b0000100000000000
-			       #b0000000000100000))))))
+		'((0.1 (8 16 ((0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1)
+			      (1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1)
+			      (1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1))))
+		  (0.2 (8 8 ((0 1 1 1 1 1 1 1)
+			     (1 1 1 0 1 1 1 1)
+			     (1 1 1 1 1 1 0 1)
+			     (1 0 1 1 1 1 1 1)
+			     (1 1 1 1 0 1 1 1)
+			     (1 1 1 1 1 1 1 0)
+			     (1 1 0 1 1 1 1 1)
+			     (1 1 1 1 1 0 1 1))))
+		  (0.3 (4 4 ((0 1 1 1)
+			     (1 1 0 1)
+			     (1 0 1 1)
+			     (1 1 1 0))))
+		  (0.4 (3 3 ((0 1 1)
+			     (1 0 1)
+			     (1 1 0))))
+		  (0.6 (2 2 ((0 1)
+			     (1 0))))
+		  (0.7 (3 3 ((1 0 0)
+			     (0 1 0)
+			     (0 0 1))))
+		  (0.8 (4 4 ((1 0 0 0)
+			     (0 0 1 0)
+			     (0 1 0 0)
+			     (0 0 0 1))))
+		  (0.9 (8 8 ((1 0 0 0 0 0 0 0)
+			     (0 0 0 1 0 0 0 0)
+			     (0 0 0 0 0 0 1 0)
+			     (0 1 0 0 0 0 0 0)
+			     (0 0 0 0 1 0 0 0)
+			     (0 0 0 0 0 0 0 1)
+			     (0 0 1 0 0 0 0 0)
+			     (0 0 0 0 0 1 0 0))))
+		  (0.95 (8 16 ((1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0)
+			       (0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
+			       (0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0)))))))
 
 (defvar *clx-opacity-stipples*
 	(mapcar #'(lambda (entry)
 		    (cons (first entry) (apply #'make-stipple-image (second entry))))
-		'((+nowhere+ (1 1 (#b0)))
-		  (0.05 (8 16 (#b1000000000000000
-			       #b0000001000000000
-			       #b0000000000001000
-			       #b0010000000000000
-			       #b0000000010000000
-			       #b0000000000000010
-			       #b0000100000000000
-			       #b0000000000100000)))
-		  (0.1 (8 8 (#b10000000
-			     #b00010000
-			     #b00000010
-			     #b01000000
-			     #b00001000
-			     #b00000001
-			     #b00100000
-			     #b00000100)))
-		  (0.2 (4 4 (#b1000
-			     #b0010
-			     #b0100
-			     #b0001)))
-		  (0.3 (3 3 (#b100
-			     #b010
-			     #b001)))
-		  (0.4 (2 2 (#b10
-			     #b01)))
-		  (0.6 (3 3 (#b011
-			     #b101
-			     #b110)))
-		  (0.7 (4 4 (#b0111
-			     #b1101
-			     #b1011
-			     #b1110)))
-		  (0.8 (8 8 (#b01111111
-			     #b11101111
-			     #b11111101
-			     #b10111111
-			     #b11110111
-			     #b11111110
-			     #b11011111
-			     #b11111011)))
-		  (0.9 (8 16 (#b0111111111111111
-			      #b1111110111111111
-			      #b1111111111110111
-			      #b1101111111111111
-			      #b1111111101111111
-			      #b1111111111111101
-			      #b1111011111111111
-			      #b1111111111011111)))
-		  (1.0 (1 1 (#b0)))
-		  (+everywhere+ (1 1 (#b1))))))
+		'((+nowhere+ (1 1 ((0))))
+		  (0.05 (8 16 ((1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0)
+			       (0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
+			       (0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0)
+			       (0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0))))
+		  (0.1 (8 8 ((1 0 0 0 0 0 0 0)
+			     (0 0 0 1 0 0 0 0)
+			     (0 0 0 0 0 0 1 0)
+			     (0 1 0 0 0 0 0 0)
+			     (0 0 0 0 1 0 0 0)
+			     (0 0 0 0 0 0 0 1)
+			     (0 0 1 0 0 0 0 0)
+			     (0 0 0 0 0 1 0 0))))
+		  (0.2 (4 4 ((1 0 0 0)
+			     (0 0 1 0)
+			     (0 1 0 0)
+			     (0 0 0 1))))
+		  (0.3 (3 3 ((1 0 0)
+			     (0 1 0)
+			     (0 0 1))))
+		  (0.4 (2 2 ((1 0)
+			     (0 1))))
+		  (0.6 (3 3 ((0 1 1)
+			     (1 0 1)
+			     (1 1 0))))
+		  (0.7 (4 4 ((0 1 1 1)
+			     (1 1 0 1)
+			     (1 0 1 1)
+			     (1 1 1 0))))
+		  (0.8 (8 8 ((0 1 1 1 1 1 1 1)
+			     (1 1 1 0 1 1 1 1)
+			     (1 1 1 1 1 1 0 1)
+			     (1 0 1 1 1 1 1 1)
+			     (1 1 1 1 0 1 1 1)
+			     (1 1 1 1 1 1 1 0)
+			     (1 1 0 1 1 1 1 1)
+			     (1 1 1 1 1 0 1 1))))
+		  (0.9 (8 16 ((0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1)
+			      (1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1)
+                              (1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1)
+			      (1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1))))
+		  (1.0 (1 1 ((0))))
+		  (+everywhere+ (1 1 ((1)))))))
 		
 ;; The xlib:image objects are created at load time to save run time & space.
 ;; Here a '0' means white, '1' black.
@@ -411,7 +418,8 @@
 					   ((<= depth 4) 'xlib::pixarray-4-element-type)
 					   ((<= depth 8) 'xlib::pixarray-8-element-type)
 					   ((<= depth 16) 'xlib::pixarray-16-element-type)
-					   ((<= depth 24) 'xlib::pixarray-24-element-type)
+                                           ;; hack: CLX chokes on patterns with 24-bit depth
+					   #+(or) ((<= depth 24) 'xlib::pixarray-24-element-type)
 					   (t 'xlib::pixarray-32-element-type)))))
 		(declare (simple-vector design-pixels))
 		;; Cache the decoded designs from the pattern
@@ -433,6 +441,7 @@
 			      (svref design-pixels (aref array y x))))))
 		(let ((gc (xlib:create-gcontext :drawable drawable)))
 		  (xlib:copy-gcontext foreground-gcontext gc)
+		  (setf (xlib:gcontext-clip-mask gc) :none)
 		  (setf (xlib:gcontext-fill-style gc) :tiled)
 		  (setf (xlib:gcontext-tile gc)
 			(let ((image
@@ -847,6 +856,7 @@
       (convert-to-device-coordinates transform left top right bottom)
       (when (< right left) (rotatef right left))
       (when (< bottom top) (rotatef bottom top))
+      (setf (xlib:gcontext-clip-mask background-gcontext) :none)
       (xlib:draw-rectangle drawable background-gcontext 
 			   left top (- right left) (- bottom top) t))))
 

@@ -28,7 +28,7 @@
 
 (defmacro defprotocol (name supers &rest options)
  (declare (ignore supers options))
-  `(eval-when (compile eval load)
+  `(eval-when (:compile-toplevel :execute :load-toplevel)
      (setf (find-protocol ',name)
            (make-instance 'protocol :name ',name))))
 
@@ -47,7 +47,7 @@
   
 (defmacro defrole (class supers slots &rest options)
   (declare (ignore supers options))
-  `(eval-when (compile eval load)
+  `(eval-when (:compile-toplevel :execute :load-toplevel)
      #+PCL
      (pcl::do-standard-defsetf
        ,@(mapcan #'(lambda (slot)
@@ -106,7 +106,7 @@
       (setq trampoline-extra-args (append (ldiff extra-args keyword-args)
                                           (unless (member '&rest extra-args)
                                             `(&rest keyword-arguments)))))
-    `(eval-when (compile eval load)
+    `(eval-when (:compile-toplevel :execute :load-toplevel)
        #-VDPCL ,@defgeneric                        ;PCL's defgeneric fails.
        (let* ((protocol (find-protocol ',protocol))
               (operation
@@ -185,7 +185,7 @@
                                    (dotimes (i nvalues)
                                      (collect 
                                        (make-symbol 
-                                         (format nil "~A-~D" 'new-value i)))))))
+                                         (cl:format nil "~A-~D" 'new-value i)))))))
                            `((,(if (= nvalues 1) 'defmethod 'defmethod*)
                               (setf ,writer) (,@values-vars (,role-player ,role-player))
                               (let ((,outer-self (or ,outer-self ,role-player)))

@@ -27,7 +27,7 @@
     ((next-menu :initform nil :initarg :next-menu)))
 
 ;;;#+(or aclpc acl86win32)
-;;;(eval-when (compile load eval)
+;;;(eval-when (:compile-toplevel :load-toplevel :execute)
 ;;;   ;;mm: 11Jan95 - this is defined later in  ???
 ;;;   (unless (ignore-errors (find-class 'pull-down-menu))
 ;;;      (defclass pull-down-menu () ())))
@@ -285,8 +285,13 @@
 				      (make-pane 'menu-bar-button-logic
 						 :label name
 						 :next-menu value)
-				    (error "not yet implemented")
-				    )))
+
+                                      ;; NOTE WORKAROUND this push button is a temporary replacement for the
+                                      ;; error condition below. -- jacek.zlydach 2017-05-04
+                                      (make-pane 'push-button
+                                                 :label name)
+                                      ;(error "not yet implemented")
+                                      )))
 			    (make-command-table-menu command-table))))
 	       (make-pane 'hbox-pane :contents buttons 
 			  :min-height 2 :height 2))))

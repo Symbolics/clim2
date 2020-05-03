@@ -26,23 +26,30 @@
 
 #+allegro
 (defun-inline compile-file-environment-p (environment)
-  #-(version>= 7 0)
+  #+(and allegro (not (version>= 7 0)))
   (or (eq environment 'compile-file) excl::*compiler-environment*)
-  #+(version>= 7 0)
+  #+(and allegro (version>= 7 0))
   (or (and sys::*compile-file-environment*
 	   (excl::compilation-environment-p environment)
 	   environment)
       sys::*compile-file-environment*))
 
 #+(and allegro never-in-a-million-years)
-(eval-when (compile)
+(eval-when (:compile-toplevel)
   (warn "~S hacked for lack of environment support in 4.1" 'compile-file-environment-p))
 
-#+CCL-2
+#+(or (and MCL CCL-2) Clozure)
 (defun-inline compile-file-environment-p (environment)
   (if (eq environment 'compile-file)
-      t
-      (ccl::compile-file-environment-p environment)))
+      #+Clozure (ccl:augment-environment nil)
+      #-Clozure t
+      (ccl:augment-environment environment)))
+
+#+ (or sbcl ccl)
+(defun-inline  compile-file-environment-p (environment)
+  (declare (ignore environment))
+  ;; FIXME this shouldn't even need to exist, I think. -- jacek.zlydach, 2017-05-06
+  nil)
 
 #+(and allegro (not (version>= 4 1)))
 (defgeneric make-load-form (object))
@@ -83,7 +90,7 @@
 ;;; by load-reference-to-presentation-type-class isn't sufficient without this,
 ;;; because a MAKE-LOAD-FORM form for a presentatation type class could be evaluated
 ;;; before a superclass has been defined.
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (setq compiler::.random-forms-max. 0))
 
 
@@ -92,7 +99,6 @@
 
 #+(and allegro (not (version>= 4 1)))
 (lisp:defun slot-value-alist (body)
-  (declare (values real-body alist))
   (let ((alist nil))
     (do* ((real-body body (cdr real-body))
           (form (car real-body) (car real-body)))

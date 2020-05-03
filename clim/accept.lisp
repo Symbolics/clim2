@@ -24,7 +24,6 @@
                (insert-default nil) (replace-input t)
                (present-p nil) (active-p t))
   (declare (dynamic-extent accept-args))
-  (declare (values object type))
   (declare (ignore prompt-mode display-default
 		   activation-gestures additional-activation-gestures
 		   delimiter-gestures additional-delimiter-gestures 
@@ -336,7 +335,6 @@
 				(delimiter-gestures nil delimiter-gestures-p)
 				(additional-delimiter-gestures nil)
 				(start 0) (end nil))
-  (declare (values object type index))
 
   ;; Allow the arguments to be presentation type abbreviations
   (multiple-value-bind (expansion expanded)
@@ -446,14 +444,14 @@
 ;; protocol on input-from-string streams 
 (defmethod stream-read-gesture ((stream t)
 				&key timeout peek-p
-				     input-wait-test input-wait-handler
-				     pointer-button-press-handler)
+                                  input-wait-test input-wait-handler
+                                  pointer-button-press-handler)
   (declare (ignore input-wait-test input-wait-handler pointer-button-press-handler))
   ;; avoid using STREAM-x functions to reduce Gray stream dependence,
   ;; tfb 13-jun-2000
-  (let ((char (if (eq timeout 0)
+  (let ((char (if (eql timeout 0)
 		  (read-char-no-hang stream nil *end-of-file-marker*)
-		(read-char stream nil *end-of-file-marker*))))
+                  (read-char stream nil *end-of-file-marker*))))
     (when (and char peek-p 
 	       ;; spr26071 -pnc
 	       ;; As noted above, this used to call stream-unread-char,

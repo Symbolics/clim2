@@ -25,20 +25,14 @@
 (defgeneric compose-scaling-with-transformation (transform mx my &optional origin))
 (defgeneric compose-rotation-with-transformation (transform angle &optional origin))
 
-(defgeneric transform-position (transform x y)
-  #-aclpc (declare (values x y)))
-(defgeneric untransform-position (transform x y)
-  #-aclpc (declare (values x y)))
+(defgeneric transform-position (transform x y))
+(defgeneric untransform-position (transform x y))
 
-(defgeneric transform-distance (transform dx dy)
-  #-aclpc (declare (values dx dy)))
-(defgeneric untransform-distance (transform dx dy)
-  #-aclpc (declare (values dx dy)))
+(defgeneric transform-distance (transform dx dy))
+(defgeneric untransform-distance (transform dx dy))
 
-(defgeneric transform-rectangle* (transform x1 y1 x2 y2)
-  #-aclpc (declare (values x1 y1 x2 y2)))
-(defgeneric untransform-rectangle* (transform x1 y1 x2 y2)
-  #-aclpc (declare (values x1 y1 x2 y2)))
+(defgeneric transform-rectangle* (transform x1 y1 x2 y2))
+(defgeneric untransform-rectangle* (transform x1 y1 x2 y2))
 
 
 ;;; Transformations
@@ -79,7 +73,7 @@
   (print-unreadable-object (transform stream :type t :identity t)
     (with-slots (tx ty) transform
       (declare (type single-float tx ty))
-      (format stream "(~D,~D)" tx ty))))
+      (cl:format stream "(~D,~D)" tx ty))))
 
 (defmethod make-load-form ((transform translation-transformation)
                              #-aclpc &optional #-aclpc environment)
@@ -116,8 +110,8 @@
     (with-slots (mxx mxy myx myy tx ty) transform
       (declare (single-float mxx mxy myx myy tx ty))
       (if (and (zerop mxy) (zerop myx))
-          (format stream "scale (~D,~D) translate (~D,~D)" mxx myy tx ty)
-          (format stream "[~D ~D ~D ~D] ~D ~D)" mxx mxy myx myy tx ty)))))
+          (cl:format stream "scale (~D,~D) translate (~D,~D)" mxx myy tx ty)
+          (cl:format stream "[~D ~D ~D ~D] ~D ~D)" mxx mxy myx myy tx ty)))))
 
 
 ;;; Conditions
@@ -128,7 +122,7 @@
   ((points :reader transformation-underspecified-points :initarg :points))
   (:report
     (lambda (condition stream)
-      (format stream "You can't make a transformation from the three collinear points ~@
+      (cl:format stream "You can't make a transformation from the three collinear points ~@
                      (~D,~D), (~D,~D), and (~D,~D)"
         (nth 0 (transformation-underspecified-points condition))
         (nth 1 (transformation-underspecified-points condition))
@@ -140,7 +134,7 @@
 (define-condition reflection-underspecified (transformation-underspecified) ()
   (:report
     (lambda (condition stream)
-      (format stream "You can't make a reflection from the two coincident points ~@
+      (cl:format stream "You can't make a reflection from the two coincident points ~@
                      (~D,~D) and (~D,~D)"
         (nth 0 (transformation-underspecified-points condition))
         (nth 1 (transformation-underspecified-points condition))
@@ -151,7 +145,7 @@
   ((transformation :reader singular-transformation-transformation :initarg :transformation))
   (:report
     (lambda (condition stream)
-      (format stream "The transformation ~S is singular"
+      (cl:format stream "The transformation ~S is singular"
 	(singular-transformation-transformation condition)))))
 
 

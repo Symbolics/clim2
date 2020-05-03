@@ -52,7 +52,7 @@
 	  #-Genera t
       (setf (window-label top-level-sheet) name))))
 
-(eval-when (eval compile load)
+(eval-when (:execute :compile-toplevel :load-toplevel)
 
 (defstruct (frame-descriptor (:print-function print-frame-descriptor))
   name
@@ -176,7 +176,7 @@
 				     `(list ',name ',type ,@options)))
 			       pane-descriptions)))
 	`(progn
-	   (eval-when (compile)
+	   (eval-when (:compile-toplevel)
 	     (when ',command-table
 	       (setf (compile-time-property ',(first command-table) 'command-table-name) t))
 	     (define-application-frame-1 ',name ',slots ,pane-descriptions
@@ -1036,7 +1036,7 @@
 			    (frame-pointer-documentation-output frame)))
 		      ;; We must return the values from CALL-NEXT-METHOD,
 		      ;; or else ACCEPTING-VALUES will return NIL
-                      #-CCL-2
+                      #-(and MCL CCL-2)
 		      (return-from run-frame-top-level (call-next-method))
                       ;; The (RETURN-FROM FOO (CALL-NEXT-METHOD)) form above
                       ;; doesn't work in Coral.  If the "top level" restart
@@ -1045,7 +1045,7 @@
 		      ;; can't find the next method.  Hoisting the
                       ;; CALL-NEXT-METHOD out of the RETURN-FROM form seems
                       ;; to fix it...  So it conses, big deal.
-                      #+CCL-2
+                      #+(and MCL CCL-2)
                       (let ((results (multiple-value-list (call-next-method))))
                         (return-from run-frame-top-level (values-list results)))))))))
 	(when top-level-sheet

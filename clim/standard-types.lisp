@@ -456,7 +456,7 @@
           (fs:complete-pathname default string nil :newest :read)
         (values string success (and success (pathname string)) 1))))
 
-#+CCL-2
+#+(and MCL CCL-2)
 (defun pathname-complete (string action &optional (default *default-pathname-defaults*))
   #-aclpc (declare (ignore default))                        ;--- for now
   ;; Slow but accurate
@@ -469,12 +469,12 @@
     (complete-from-possibilities string completions '(#\space)
                                  :action action :name-key #'namestring :value-key #'identity)))
 
-#-(or Genera CCL-2)
+#-(or Genera (and MCL CCL-2))
 (defun pathname-complete (string action &optional (default *default-pathname-defaults*))
   (pathname-complete-1 string action default))
 
 
-#-CCL-2
+#-(and MCL CCL-2)
 (defun pathname-complete-1 (string action &optional (default *default-pathname-defaults*))
   ;; Slow but accurate
   (let* ((original-pathname (pathname string))
@@ -811,7 +811,6 @@
 (defun accept-comma (stream desired-type view
                      &key (delimiter-character #\,)
                           echo-space echo-string-before-blip)
-  (declare (values more-to-come object type))
   (with-input-context (desired-type) (object type)
        (loop
          (let ((char (read-gesture :stream stream)))
@@ -953,11 +952,19 @@
 
 ;;;; Sequence Presentation Types
 
-(define-presentation-type sequence (element-type)
-  :inherit-from t                        ;enforce CL definition
+#+sbcl(define-presentation-type sequence (element-type)
+  :inherit-from (find-class 't)                     ;enforce CL definition ; NOTE changed "t" to "(find-class 't)" -- jacek.zlydach, 2017-05-06
   :parameters-are-types t
   :options ((separator #\,)
             (echo-space t)))
+
+;;; NOTE CCL seems to like it the old way -- jacek.zlydach, 2017-05-06
+#-sbcl(define-presentation-type sequence (element-type)
+  :inherit-from t                     ;enforce CL definition
+  :parameters-are-types t
+  :options ((separator #\,)
+            (echo-space t)))
+
 
 (define-presentation-method describe-presentation-type :after
                             ((type sequence) stream plural-count)
@@ -1073,7 +1080,6 @@
 
 (defun accept-sequence-element (stream element-type view separators
                                 element-default element-default-type default-supplied-p)
-  (declare (values object object-type))
   (multiple-value-bind (object object-type)
       (with-input-context (element-type) (object object-type)
            (with-delimiter-gestures (separators)
@@ -1499,7 +1505,7 @@
         (rescan-if-necessary stream))
       (multiple-value-bind (expression index)
           (handler-case
-              (read-from-string string)
+              (read-from-string (evacuate-temporary-string string))
             (error ()
               (simple-parse-error "The input ~S is not a complete Lisp expression."
                                   (evacuate-temporary-string string))))
@@ -1726,7 +1732,6 @@
 
 #+Genera
 (defun dw-type-to-clim-type (object dw-type)
-  (declare (values new-object clim-type changed-p))
   (dw:with-type-decoded (type-name data-args pr-args) dw-type
      (let ((new (assoc type-name *dw-type-to-clim-type-alist*)))
        (if new

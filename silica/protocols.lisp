@@ -20,7 +20,7 @@
 
 (defmethod print-object ((protocol protocol) stream)
   (print-unreadable-object (protocol stream)
-    (format stream "Protocol: ~a" (protocol-name protocol))))
+    (cl:format stream "Protocol: ~a" (protocol-name protocol))))
 
 (defclass role ()
     ((name :initarg :name :accessor role-name)
@@ -28,7 +28,7 @@
 
 (defmethod print-object ((role role) stream)
   (print-unreadable-object (role stream)
-    (format stream "Role: ~a" (role-name role))))
+    (cl:format stream "Role: ~a" (role-name role))))
 
 (defclass operation ()
     ((name :initarg :name :accessor operation-name)
@@ -38,7 +38,7 @@
 
 (defmethod print-object ((operation operation) stream)
   (print-unreadable-object (operation stream)
-    (format stream "Operation: ~a" (operation-name operation))))
+    (cl:format stream "Operation: ~a" (operation-name operation))))
 
 (defvar *protocols* nil)
 (defmacro find-protocol (name) `(getf *protocols* ,name))
@@ -50,13 +50,13 @@
 
 (defmacro defprotocol (name supers &rest options)
   (declare (ignore supers options))
-  `(eval-when (compile eval load)
+  `(eval-when (:compile-toplevel :execute :load-toplevel)
      (setf (find-protocol ',name)
 	     (make-instance 'protocol :name ',name))))
 
 (defmacro defrole (class supers slots &rest options)
   (declare (ignore supers options))
-  `(eval-when (compile eval load)
+  `(eval-when (:compile-toplevel :execute :load-toplevel)
      #+PCL
      (pcl::do-standard-defsetf
        ,@(mapcan #'(lambda (slot)
@@ -88,7 +88,7 @@
 				t))
 			required-arg-specs))
 	 (extra-args (and pos (subseq arg-specs pos))))
-    `(eval-when (compile eval load)
+    `(eval-when (:compile-toplevel :execute :load-toplevel)
        ;; Define a group named (OPERATION PROTOCOL NAME), since we can
        ;; have multiple DEFOPERATIONs for the same operation in
        ;; different protocols (used to just be named NAME).
@@ -204,7 +204,7 @@
 				   (dotimes (i nvalues)
 				     (collect
 				       (make-symbol
-					 (format nil "~A-~D" 'new-value i)))))))
+					 (cl:format nil "~A-~D" 'new-value i)))))))
 			   `((,(if (= nvalues 1) 'defmethod 'defmethod*)
 			      (setf ,writer) (,@values-vars (,role-player ,role-player))
 			      (let* ((*outer-self* (or *outer-self* ,role-player))

@@ -112,6 +112,7 @@
 (defmethod sheet-device-region ((sheet sheet-transformation-mixin))
   (let ((region (sheet-cached-device-region sheet)))
     ;; We decache the device region by setting this slot to NIL...
+    ;; What the hell... now we have to track how this NIL is slipping through to CLX-CLIM::COMPUTE-GCONTEXT-CLIP-MASK (CLX-CLIM::CLX-MEDIUM) -- jacek.zlydach 2017-07-31
     (cond ((or (eq region +nowhere+)		    ;it can happen
 	       (and region (slot-value region 'left)))
 	   region)
@@ -173,14 +174,12 @@
 
 ;; Returns the coordinates of sheet's mirror in the coordinates of the
 ;; parent of the mirror
-(defgeneric mirror-region* (port sheet)
-  #-aclpc (declare (values left top right bottom)))
+(defgeneric mirror-region* (port sheet))
 
 ;; Returns the coordinates of sheet's mirror in the coordinates of the
 ;; mirror itself.  That is, it will return 0,0,WIDTH,HEIGHT for most
 ;; known window systems
-(defgeneric mirror-inside-region* (port sheet)
-  (declare (values left top right bottom)))
+(defgeneric mirror-inside-region* (port sheet))
 
 (defgeneric mirror-native-edges* (port sheet))
 (defgeneric mirror-inside-edges* (port sheet))

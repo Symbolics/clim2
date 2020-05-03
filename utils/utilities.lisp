@@ -20,7 +20,7 @@
   (warn warn-string)
   nil)
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 (defmacro with-collection (&body body)
   `(let (($with-collection-result$ nil)
          $with-collection-tail$)
@@ -69,9 +69,9 @@
            #+Genera array
            #-(or allegro Genera) array)
          (internal-binding-declarations (variables)
+           #-(or allegro Genera) (declare (ignore variables))
            #+allegro `(declare (simple-vector ,@variables))
-           #+Genera `(declare (sys:array-register ,@variables))
-           #-(or allegro Genera) `(declare)))
+           #+Genera `(declare (sys:array-register ,@variables))))
     (let* ((aref #+(or allegro Genera) 'svref
                  #-(or allegro Genera) 'aref)
            (macro-names (mapcar #'first macros-and-arrays))

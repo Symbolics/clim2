@@ -48,7 +48,7 @@
 (defclass sheet-single-child-mixin (sheet-parent-mixin)
     ((children :initform nil :accessor sheet-children)))
 
-#-(or aclpc acl86win32)
+#+(and Allegro (not (or aclpc acl86win32)))
 (define-dynamic-extent-args map-over-sheets (function sheet)
   function)
 
@@ -220,8 +220,7 @@
                        (sheet-transformation child) left top right bottom))))
           (sheet-children sheet)))))
 
-(defgeneric map-over-sheets-containing-position (function sheet x y)
-  (declare (dynamic-extent function)))
+(defgeneric map-over-sheets-containing-position (function sheet x y))
 (defmethod map-over-sheets-containing-position (function (sheet basic-sheet) x y)
   (declare (dynamic-extent function))
   (dolist (child (sheet-children sheet))
@@ -231,8 +230,7 @@
                  (region-contains-position-p (sheet-region child) x y)))
       (funcall function child))))
 
-(defgeneric map-over-sheets-overlapping-region (function sheet region)
-  (declare (dynamic-extent function)))
+(defgeneric map-over-sheets-overlapping-region (function sheet region))
 (defmethod map-over-sheets-overlapping-region (function (sheet basic-sheet) region)
   (declare (dynamic-extent function))
   (if (or (null region)                                ;--- kludge
@@ -325,7 +323,7 @@
     (when region
       (if (eq region +nowhere+)                        ;it can happen...
           (setf (sheet-cached-device-region sheet) nil)
-          (setf (slot-value (sheet-cached-device-region sheet) 'left) nil)))))
+          (setf (slot-value (sheet-cached-device-region sheet) 'left) nil))))) ;FIXME UGLY HACK? -- jacek.zlydach 2017-07-31
 
 (defmethod invalidate-cached-regions :after ((sheet sheet-parent-mixin))
   ;;--- In theory if this sheet has a mirror we don't need to do any more
@@ -345,7 +343,7 @@
     (when region
       (if (eq region +nowhere+)                        ;it can happen...
           (setf (sheet-cached-device-region sheet) nil)
-          (setf (slot-value (sheet-cached-device-region sheet) 'left) nil))))
+          (setf (slot-value (sheet-cached-device-region sheet) 'left) nil)))) ;FIXME UGLY HACK? -- jacek.zlydach 2017-07-31
   (setf (sheet-cached-device-transformation sheet) nil))
 
 (defmethod invalidate-cached-transformations :after ((sheet sheet-parent-mixin))

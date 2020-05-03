@@ -49,7 +49,7 @@
 (defmethod make-load-form ((color gray-color) #-aclpc &optional #-aclpc environment)
   #-aclpc (declare (ignore environment))
   (with-slots (luminosity) color
-    `(#-(or aclpc acl86win32) make-gray-color #+(or aclpc acl86win32) make-gray-color-1 ,luminosity)))
+    `(make-gray-color-1 ,luminosity)))
 
 
 ;;; Colors
@@ -159,6 +159,10 @@
     ((palette :reader device-color-palette :initarg :palette)
      (pixel :reader device-color-pixel :initarg :pixel)))
 
+(defmethod device-color-color ((color device-color))
+  (with-slots (palette pixel) color
+    (break "pixel: ~S;; palette: ~S" pixel palette)))
+
 (defmethod make-load-form ((color device-color) #-aclpc &optional #-aclpc environment)
   (declare (ignore environment))
   (with-slots (palette pixel) color
@@ -167,7 +171,7 @@
 
 ;;; Foreground and background (indirect) inks
 
-(defconstant +foreground-ink+ (make-instance 'design))
+(defparameter +foreground-ink+ (make-instance 'design))
 
 (defmethod make-load-form ((design (eql (symbol-value '+foreground-ink+)))
 			   #-aclpc &optional #-aclpc environment)
@@ -176,7 +180,7 @@
   #+aclpc '(symbol-value '+foreground-ink+))
 
 
-(defconstant +background-ink+ (make-instance 'design))
+(defparameter +background-ink+ (make-instance 'design))
 
 (defmethod make-load-form ((design (eql (symbol-value '+background-ink+)))
 			   #-aclpc &optional #-aclpc environment)
@@ -197,7 +201,7 @@
 (defmethod make-load-form ((design flipping-ink) #-aclpc &optional #-aclpc environment)
   #-aclpc (declare (ignore environment))
   (with-slots (design1 design2) design
-    `(#-(or aclpc acl86win32) make-flipping-ink #+(or aclpc acl86win32) make-flipping-ink-1 ',design1 ',design2)))
+    `(make-flipping-ink-1 ',design1 ',design2)))
 
 
 ;;; Contrasting inks

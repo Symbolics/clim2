@@ -35,17 +35,17 @@
 ;; ANSI-90, corresponding to what we think the spec will be, in late 1990.
 
 #+Allegro
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (warn "This file is no longer used in the Allegro port. \
 Something is wrong if this warning appears!"))
 
-#+(or CCL-2 Allegro aclpc acl86win32 Minima) ;Have to assume this won't blow up anybody's lisp
-
+#+(or ansi-cl (and MCL CCL-2) Allegro aclpc acl86win32 Minima)
+;; Have to assume this won't blow up anybody's lisp
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (pushnew :ansi-90 *features*))
 
 #+Genera
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (multiple-value-bind (major minor) (sct:get-system-version)
     (declare (ignore minor))
     (when (>= major 437)
@@ -111,7 +111,7 @@ Something is wrong if this warning appears!"))
 ;;; *** A temporary workaround, easier than fixing all references to
 ;;; *** LISP:<foo>.  --RWK 20.Nov.90
 #+ANSI-90
-(eval-when (eval compile load)
+(eval-when (:execute :compile-toplevel :load-toplevel)
   (flet ((fix-package (pack-name add-name)
            (setq add-name (string add-name))
            (let ((pack (find-package pack-name)))
@@ -136,12 +136,12 @@ Something is wrong if this warning appears!"))
 ;;;
 
 #-(or Minima Genera)
-(eval-when (eval load compile)
+(eval-when (:execute :load-toplevel :compile-toplevel)
   (shadow (list (intern (symbol-name :make-pathname) :lisp)
                 (intern (symbol-name :pathname-directory) :lisp))))
 
 #-(or Minima Genera)
-(eval-when (eval load compile)
+(eval-when (:execute :load-toplevel :compile-toplevel)
   (export (list (intern (symbol-name :make-pathname) :clim-defsystem)
                 (intern (symbol-name :pathname-directory) :clim-defsystem))))
 
@@ -474,7 +474,8 @@ Something is wrong if this warning appears!"))
   #+xerox (pathname *standard-input*)
   #+Genera sys:fdefine-file-pathname
   #+Minima *load-pathname*
-  #-(or Lucid Allegro xerox Genera Minima) nil)
+  #+ansi-cl *load-pathname*
+  #-(or Lucid Allegro xerox Genera Minima ansi-cl) nil)
 
 (defvar *current-system* nil
   "Name of the system currently being loaded or compiled")
@@ -486,17 +487,17 @@ Something is wrong if this warning appears!"))
 ;;;
 
 (defstruct (language (:type list))
-  name                                        ;Name of the language.  A keyword symbol
-  source-types                                ;List of file types that might contain
-                                        ; source code
-  binary-types                                ;List of file types that might contain
-                                        ; compiled code
-  compile-fn                                ;Function to apply to the source-file
-                                        ; pathname, the binary-file pathname,
-                                        ; and the list of optimizations to
-                                        ; compile the source
-  load-fn)                                ;Function to apply to a binary-file to
-                                        ; load it
+  name                               ;Name of the language.  A keyword symbol
+  source-types                       ;List of file types that might contain
+                                     ; source code
+  binary-types                       ;List of file types that might contain
+                                     ; compiled code
+  compile-fn                         ;Function to apply to the source-file
+                                     ; pathname, the binary-file pathname,
+                                     ; and the list of optimizations to
+                                     ; compile the source
+  load-fn)                           ;Function to apply to a binary-file to
+                                     ; load it
 
 (defvar *language-descriptions* nil
   "List of descriptions of languages understood by defsystem")
@@ -519,9 +520,8 @@ Something is wrong if this warning appears!"))
   #+acl86win32                        `(("lisp" "cl" "lsp")           "fasl")
   #+Allegro                           `(("lisp" "cl")   "fasl")
   #+lispworks                         `("lisp"          ,ccl::*binary-file-type*)
-  #+ccl                               `("lisp"          "fasl")
-  #+aclpc                             `(("lisp" "lsp" "lis")
-                                                                                ("fsl" "fas"))
+  #+(and MCL CCL-2)                   `("lisp"          "fasl")
+  #+aclpc                             `(("lisp" "lsp" "lis") ("fsl" "fas"))
   #+(and dec common vax (not ultrix)) `("LSP"           "FAS")
   #+(and dec common vax ultrix)       `("lsp"           "fas")
   #+KCL                               `("lsp"           "o")
@@ -531,12 +531,16 @@ Something is wrong if this warning appears!"))
   #+cmu                               `("lisp"          "sparcf")
   #+prime                             `("lisp"          "pbin")
   #+hp                                `("l"             "b")
-  #+TI                                `("lisp"          "xfasl"))
+  #+TI                                `("lisp"          "xfasl")
+  #+Clozure                           `(,(cl:pathname-type ccl:*.lisp-pathname*)
+                                        ,(cl:pathname-type ccl:*.fasl-pathname*))
+  #+SBCL                              `("lisp" ,(cl:pathame-type (cl:compile-file-pathname "foo.lisp")))
+  )
 
 (defun compile-lisp-file (pathname binary-pathname optimizations)
-  #+(or Genera Cloe-Runtime lispworks CCL-2)
+  #+(or Genera Cloe-Runtime lispworks (and MCL CCL-2))
   (format t "~&; Compiling ~A~%" pathname)
-  #+CCL-2
+  #+(and MCL CCL-2)
   (ccl:set-mini-buffer ccl:*top-listener* "~A: Compiling ~A."
                        *current-system*
                        (namestring pathname))
@@ -549,9 +553,9 @@ Something is wrong if this warning appears!"))
 (defun load-lisp-file (pathname &optional libraries)
   (declare (ignore libraries))
   #+Cloe-Runtime (format t "~&; Loading ~A~%" pathname)
-  #+CCL-2 (ccl:set-mini-buffer ccl:*top-listener* "~A: Loading ~A."
-                               *current-system*
-                               (namestring pathname))
+  #+(and MCL CCL-2) (ccl:set-mini-buffer ccl:*top-listener* "~A: Loading ~A."
+                                         *current-system*
+                                         (namestring pathname))
   (let (#+Minima (*load-verbose* t))
     (load pathname)))
 
@@ -821,15 +825,16 @@ Something is wrong if this warning appears!"))
 
 (defun directory-exists-p (pathname)
   pathname
-  #+CCL-2 (ccl::directory-exists-p pathname))
+  #+(and MCL CCL-2) (ccl::directory-exists-p pathname))
 
 (defun create-directory (pathname)
-  #+CCL-2 (let* ((path (translate-logical-pathname pathname))
-                 (dir (pathname-directory path))
-                 (dirname (first (last dir)))
-                 (ndir (butlast dir))
-                 (dirpath (lisp:make-pathname :name dirname :type :unspecific :directory ndir :defaults path)))
-            (ccl:create-directory dirpath))
+  #+(and MCL CCL-2)
+  (let* ((path (translate-logical-pathname pathname))
+         (dir (pathname-directory path))
+         (dirname (first (last dir)))
+         (ndir (butlast dir))
+         (dirpath (lisp:make-pathname :name dirname :type :unspecific :directory ndir :defaults path)))
+    (ccl:create-directory dirpath))
   pathname)
 
 ;; Return the pathname of the binary version of the module
@@ -1206,7 +1211,7 @@ pathname fields are evaluated."
 
 ;; The following are used to prevent multiple compilations/loads from occuring
 ;; during a single call to LOAD-SYSTEM or COMPILE-SYSTEM.
-(eval-when (eval compile)
+(eval-when (:execute :compile-toplevel)
   (proclaim '(special *loaded-systems* *loaded-modules* 
                       *compiled-systems* *compiled-modules*
                       *tracep*)))
@@ -1285,8 +1290,8 @@ verify that each already loaded subsystem is up-to-date, reloading it if need be
     (let* ((name (system-name system))
            (*loaded-modules* nil)
            (*current-system* name))
-      #+CCL-2 (ccl:set-mini-buffer ccl:*top-listener* "Loading system ~A."
-                                   *current-system*)
+      #+(and MCL CCL-2) (ccl:set-mini-buffer ccl:*top-listener* "Loading system ~A."
+                                             *current-system*)
       (if *tracep*
           (format t "~&;;; -- Would load system ~a" name)
           (when *load-verbose*
@@ -1389,8 +1394,8 @@ verify that each already loaded subsystem is up-to-date, reloading it if need be
         (let ((*compiled-modules* nil)
               (*loaded-modules* nil)
               (*current-system* name))
-          #+CCL-2 (ccl:set-mini-buffer ccl:*top-listener* "Compiling system ~A."
-                                       *current-system*)
+          #+(and MCL CCL-2) (ccl:set-mini-buffer ccl:*top-listener* "Compiling system ~A."
+                                                 *current-system*)
           (dolist (module (system-module-list system))
             (compile-module module reload recompile #'pre-compile-fn)))
         ;; Update info about what systems have been compiled
@@ -1622,11 +1627,11 @@ verify that each already loaded subsystem is up-to-date, reloading it if need be
   #+Lucid (values (cdr (assoc 'speed lucid::*compiler-optimizations*))
                   (cdr (assoc 'safety lucid::*compiler-optimizations*)))
   ;; Allegro 4.0 doesn't comply with this.  Maybe 4.1
-  #+CCL-2
+  #+(and MCL CCL-2)
   (let ((opts (declaration-information 'optimize)))
     (values (second (assoc 'speed opts))
             (second (assoc 'safety opts))))
-  #-(or Allegro Genera Lucid CCL-2) (values nil nil))
+  #-(or Allegro Genera Lucid (and MCL CCL-2)) (values nil nil))
 
 (defmacro with-compiler-options ((&key speed safety) &body body)
   `(multiple-value-bind (old-speed old-safety) (get-compiler-speed-and-safety)

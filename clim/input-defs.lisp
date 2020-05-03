@@ -264,16 +264,17 @@
                 (pointer-y-position pointer) y-position))))))
 
 (defmethod query-pointer ((pointer standard-pointer))
-  (declare (values sheet x y))
   (with-slots (sheet x-position y-position) pointer
     (values sheet x-position y-position)))
 
 (defun pointer-state-changed (pointer old-sheet old-x old-y)
-  (multiple-value-bind (sheet x-position y-position) (query-pointer pointer)
-    (values
-      (or (not (eq sheet old-sheet))
-          ;; compare coordinates with eql, not =, because null values can be passed in
-          (not (eql old-x x-position))
-          (not (eql old-y y-position)))
-      sheet x-position y-position)))
+  (if (null pointer)
+      (values nil nil 0 0)
+      (multiple-value-bind (sheet x-position y-position) (query-pointer pointer)
+        (values
+         (or (not (eq sheet old-sheet))
+             ;; compare coordinates with eql, not =, because null values can be passed in
+             (not (eql old-x x-position))
+             (not (eql old-y y-position)))
+         sheet x-position y-position))))
 

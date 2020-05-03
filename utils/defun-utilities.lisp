@@ -6,17 +6,6 @@
 
 ;;;"Copyright (c) 1991 International Lisp Associates.  All rights reserved."
 
-;;; Useful proclamations, very early on
-
-#+(or CCL-2 allegro Minima)	;not part of ANSI CL, but they're nice to have around
-(eval-when (compile load eval)
-  (proclaim '(declaration values))
-  (proclaim '(declaration arglist)))
-
-#+aclpc
-(eval-when (compile load eval)
-  (proclaim '(declaration arglist)))
-
 ;;; Moved here from DEFUN.  DEFUN now only contains the portable implementation
 ;;; of the DYNAMIC-EXTENT declaration, and so is not loaded into Lisps which 
 ;;; implement that declaration.
@@ -25,8 +14,7 @@
 
 (defparameter *declarations-may-be-exposed-by-macro-expansion* nil)
 
-(lisp:defun extract-declarations (body &optional environment)
-  (declare (values documentation declarations body))
+(cl:defun extract-declarations (body &optional environment)
   (let ((declarations nil)
 	(documentation nil))
     (block process-declarations
@@ -87,7 +75,7 @@
 ;;;; don't use define-group, because it does a excl::record-source-file,
 ;;;; which will be also done by defun!  This causes duplicate definition in
 ;;;; file warnings.
-     (eval-when (compile load eval) (proclaim '(inline ,name)))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (proclaim '(inline ,name)))
      (defun ,name ,lambda-list
        ,@body)))
 
@@ -106,23 +94,19 @@
 ;;
 #+allegro
 (in-package :excl)
-#+allegro
+#+(and allegro (not (version>= 5 (0 1) :pre-beta2 7)))
 (progn
-  #-(version>= 5 (0 1) :pre-beta2 7)
   (defmacro with-native-string ((native-string-var string-exp)
 				&body body)
     `(let ((,native-string-var ,string-exp))
        ,@body))
 
-  #-(version>= 5 (0 1) :pre-beta2 7)
-  (eval-when (compile load eval) (export 'with-native-string))
+  (eval-when (:compile-toplevel :load-toplevel :execute) (export 'with-native-string))
 
-  #-(version>= 5 (0 1) :pre-beta2 7)
   (defun mb-to-string (mb-vector)
     (let* ((lgth (length mb-vector))
 	   (string (make-string lgth)))
       (dotimes (i lgth string)
 	(setf (schar string i) (code-char (aref mb-vector i))))))
 
-  #-(version>= 5 (0 1) :pre-beta2 7)
-  (eval-when (compile load eval) (export 'mb-to-string)))
+  (eval-when (:compile-toplevel :load-toplevel :execute) (export 'mb-to-string)))

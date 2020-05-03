@@ -60,13 +60,16 @@
       (setq host #+Genera  (scl:send neti:*local-host* :name)
 		 #+Minima  (machine-instance)
 		 #+Allegro (or (system:getenv "DISPLAY") (short-site-name))
-		 #+Lucid   (or (lcl:environment-variable "DISPLAY") (machine-instance))))
+		 #+Lucid   (or (lcl:environment-variable "DISPLAY") (machine-instance))
+                 #+CCL     (or (ccl:getenv "DISPLAY") (machine-instance))
+                 #+sbcl    (or (sb-posix:getenv "DISPLAY") (machine-instance))
+                 ))
     (multiple-value-bind (host display-number nscreen)
 	(disassemble-display-spec host (or display-number 0) (or screen 0))
       (with-slots (display screen window height-pixels width-pixels
 		   stipple-gc default-grab-cursor color-p port-name) port
 	(setf port-name (list host display-number nscreen))
-	(setf display #-Allegro (xlib:open-display host :display display-number)
+	(setf display #-Allegro (xlib:open-default-display)
 		      #+Allegro (open-display-with-auth host :display-number display-number))
 	(fill-keycode->modifier-state display)
 	(fill-clim-modifier-key-index->x-state display)
@@ -103,7 +106,6 @@
 					    :background *clx-white-color*))))))))
 
 (defun disassemble-display-spec (display &optional (default-display 0) (default-screen 0))
-  (declare (values host display-number nscreen))
   (let ((host-n (position #\: display)))
     (unless host-n
       (return-from disassemble-display-spec 
@@ -320,7 +322,6 @@
 
 (defmethod port-glyph-for-character ((port clx-port)
 				     character text-style &optional our-font)
-  (declare (values index font escapement-x escapement-y origin-x origin-y bb-x bb-y))
   (multiple-value-bind (character-set index)
       (char-character-set-and-index character)
     (when (eq character-set *standard-character-set*)
@@ -758,3 +759,18 @@
       (do-shift :hyper))
     mask))
 
+
+
+(defmethod clim-internals::port-query-pointer ((port clx-port) sheet)
+  (multiple-value-bind (native-x native-y samep child? mask? root-x root-y root?)
+      (xlib:query-pointer (sheet-mirror sheet))
+    (declare (ignore samep child? mask? root?))
+    (multiple-value-bind (x y)
+        (untransform-position  (sheet-device-transformation sheet) native-x native-y)
+      (values x y native-x native-y root-x root-y))))
+
+(defmethod clim-internals::port-query-pointer ((port clx-port) (sheet graft))
+  (multiple-value-bind (native-x native-y samep child? mask? root-x root-y root?)
+      (xlib:query-pointer (sheet-mirror sheet))
+    (declare (ignore samep child? mask? root?))
+    (values native-x native-y native-x native-y root-x root-y)))

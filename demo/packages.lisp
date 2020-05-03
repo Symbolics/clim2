@@ -2,15 +2,15 @@
 ;; See the file LICENSE for the full license governing this code.
 ;;
 
-(in-package #-ansi-90 :user #+ansi-90 :common-lisp-user)
+(in-package :cl-user)
 
 ;;;"Copyright (c) 1990, 1991 Symbolics, Inc.  All rights reserved.
 ;;; Portions copyright (c) 1988, 1989, 1990 International Lisp Associates."
 
-(#-ansi-90 clim-lisp::defpackage #+ansi-90 defpackage clim-demo
-  (:use clim-lisp clim)
+(defpackage clim-demo
+  (:use :clim-lisp :clim)
 
-  (:shadowing-import-from clim-utils
+  (:shadowing-import-from :clim-utils
     defun
     flet labels
     defgeneric defmethod
@@ -23,7 +23,7 @@
     start-demo))
 
 
-(#-ansi-90 clim-lisp::defpackage #+ansi-90 defpackage clim-graphics-editor
+(defpackage clim-graphics-editor
   (:use clim-lisp clim clim-demo)
 
   (:shadowing-import-from clim-utils

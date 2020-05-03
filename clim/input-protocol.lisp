@@ -142,6 +142,7 @@
   (let ((char (keyboard-event-character event))
         (keysym (keyboard-event-key-name event))
         #+(or aclpc acl86win32) (modstate (slot-value event 'silica::modifier-state))
+        #-(or aclpc acl86win32) (modstate (event-modifier-state event))
         temp)
     (cond ((and (member event *asynchronous-abort-gestures*
                         :test #'keyboard-event-matches-gesture-name-p)
@@ -149,7 +150,7 @@
                 (setq temp (frame-top-level-process temp)))
            (process-interrupt temp #'(lambda () (process-abort-gesture stream event))))
           ((and (characterp char)
-                #+(or aclpc acl86win32) (not (> modstate +shift-key+))
+                (not (> modstate +shift-key+)) ; we have a modifier key other than SHIFT active - need to put full event into the queue (in another branch)
                 (or (ordinary-char-p char)
                     (diacritic-char-p char)))
            (queue-put (stream-input-buffer stream) char))
@@ -387,18 +388,15 @@
   (process-event-locally stream gesture)
   nil)
 
-(defmethod receive-gesture
-           ((stream input-protocol-mixin) gesture)
+(defmethod receive-gesture ((stream input-protocol-mixin) gesture)
   ;; don't translate it
   gesture)
 
-(defmethod receive-gesture
-           ((stream input-protocol-mixin) (gesture character))
+(defmethod receive-gesture ((stream input-protocol-mixin) (gesture character))
   (process-abort-or-accelerator-gesture stream gesture)
   gesture)
 
-(defmethod receive-gesture
-           ((stream input-protocol-mixin) (gesture key-press-event))
+(defmethod receive-gesture ((stream input-protocol-mixin) (gesture key-press-event))
   (process-abort-or-accelerator-gesture stream gesture)
   gesture)
 
@@ -413,7 +411,7 @@
          (process-abort-gesture stream gesture))))
 
 ;;;#+(or aclpc acl86win32)
-;;;(eval-when (compile load eval)
+;;;(eval-when (:compile-toplevel :load-toplevel :execute)
 ;;;   ;;mm: 11Jan95 - this is defined later in  ???
 ;;;   (unless (ignore-errors (find-class 'interactor-pane))
 ;;;      (defclass interactor-pane () ()))
@@ -458,10 +456,6 @@
 ;;; keyword :STREAM argument to *standard-input*.  The application can call
 ;;; stream-read-gesture directly.
 (defun read-gesture (&rest args &key (stream *standard-input*) &allow-other-keys)
-  (declare (arglist &rest args
-                    &key (stream *standard-input*)
-                         timeout peek-p input-wait-test input-wait-handler
-                         pointer-button-press-handler))
   (declare (dynamic-extent args))
   (with-keywords-removed (keywords args '(:stream))
     (apply #'stream-read-gesture stream keywords)))
@@ -517,7 +511,6 @@
 ;;; However, it does not want to flush any pending action elements that
 ;;; might precede the character, 'cause LISTEN should have no side effects.
 (defmethod stream-listen ((stream input-protocol-mixin))
-  #-silica (stream-event-handler stream :timeout 0)        ;Process pending keyboard input events
   (let ((input-buffer (stream-input-buffer stream)))
     (when (queue-empty-p input-buffer)
       (return-from stream-listen nil))
@@ -612,7 +605,7 @@
                           (> (get-internal-real-time) end-time))
                  (setq flag :timeout))
                flag))
-	#+os-threads (declare (dynamic-extent #'waiter))
+        (declare (dynamic-extent #'waiter))
         (port-event-wait (port stream) #'waiter 
           :wait-reason "Clim Input"
           :timeout timeout)

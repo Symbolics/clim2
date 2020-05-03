@@ -43,12 +43,12 @@
   #-(or aclpc acl86win32)
   (print-unreadable-object (style stream :type t :identity t)
     (with-slots (family face size) style
-      (format stream "~S ~S ~S" family  (face-code->face face) size)))
+      (cl:format stream "~S ~S ~S" family  (face-code->face face) size)))
   #+(or aclpc acl86win32)
   (with-slots (family face size) style
     (let ((true-face (face-code->face face)))
       (macrolet ((do-it ()
-                   `(format stream "~S.~S.~S" family true-face size)))
+                   `(cl:format stream "~S.~S.~S" family true-face size)))
         (if *print-escape*
             (print-unreadable-object (style stream :type t :identity t)
               (do-it))
@@ -63,7 +63,7 @@
 
 (defmethod print-object ((df device-font) stream)
   (print-unreadable-object (df stream :type t :identity t)
-    (format stream "~A" (slot-value df 'font-name))))
+    (cl:format stream "~A" (slot-value df 'font-name))))
 
 (defconstant +maximum-text-style-index+ 256)
 
@@ -346,9 +346,9 @@
             (setf (cdr mapping-pair) underlying)
             (push (cons logical underlying) (cdr pair)))))))
 
-(defconstant %%face-code-no-merge (byte 1 28))
-(defconstant %%face-code-class (byte 4 24))
-(defconstant %%face-code-faces (byte 24 0))
+(defparameter %%face-code-no-merge (byte 1 28))
+(defparameter %%face-code-class (byte 4 24))
+(defparameter %%face-code-faces (byte 24 0))
 
 (defun face->face-code (face)
   (when (null face) (return-from face->face-code nil))
@@ -494,7 +494,6 @@
 (defmethod text-size ((medium basic-medium) string
                       &key (text-style (medium-merged-text-style medium))
                            (start 0) end)
-  (declare (values largest-x total-height last-x last-y baseline))
   ;; this shouldn't be necessary because of trampolines directly above
   ;;  31jan97 tjm w/colin
   #+(or aclpc acl86win32)
@@ -610,6 +609,7 @@
       (load-specs nil nil nil spec))))
 
 (defmethod port-mapping-table ((port basic-port) character-set)
+  #-Allegro (declare (ignore character-set))
   (with-slots (mapping-table) port
      #+allegro
      (excl:ics-target-case
@@ -624,8 +624,9 @@
      mapping-table))
 
 (defmethod port-mapping-cache ((port basic-port) character-set)
+  #-Allegro (declare (ignore character-set))
   (with-slots (mapping-cache) port
-     #+allegro
+     #+Allegro
      (excl:ics-target-case
        (:-ics character-set mapping-cache)
        (:+ics (let ((old-length (length mapping-cache)))
@@ -634,7 +635,7 @@
                   (dotimes (i (- (length mapping-cache) old-length))
                     (setf (aref mapping-cache (+ i old-length)) (cons nil nil))))
                 (aref mapping-cache character-set))))
-     #-allegro
+     #-Allegro
      mapping-cache))
 
 (defmethod (setf text-style-mapping) (mapping (port basic-port) style
@@ -813,8 +814,7 @@
 
 #-(or aclpc acl86win32)
 (defun-inline char-character-set-and-index (character)
-  (declare (values character-set index))
-  (values #+allegro
+  (values #+Allegro
 	  (excl:ics-target-case
            (:-ics *standard-character-set*)
            (:+ics (typecase character
@@ -822,13 +822,12 @@
                     (excl::codeset-1 1)
                     (excl::codeset-2 2)
                     (excl::codeset-3 3))))
-          #-allegro *standard-character-set*
+          #-Allegro *standard-character-set*
           (char-code character)))
 
 #+(or aclpc acl86win32)
 ;;; For now, only standard character set characters are understood...
 (defun-inline char-character-set-and-index (character)
-  (declare (values character-set index))
   (values *standard-character-set* (char-code character)))
 
 

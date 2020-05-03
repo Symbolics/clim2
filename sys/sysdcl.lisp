@@ -17,7 +17,7 @@
 
 "Copyright (c) 1990, 1991, 1992 Symbolics, Inc.  All rights reserved."
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 
 ;;; Tell the world that we're here
 ;;;--- These need to be in the CLIM.fasl also.
@@ -57,23 +57,22 @@
 ;;; our own trampolines which will call our generic function, and then write default
 ;;; methods which will invoke the COMMON-LISP package equivalents.
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 
 #+(or allegro
-      Minima)
+      Minima
+      Clozure
+      SBCL)
 (pushnew :clim-uses-lisp-stream-classes *features*)
 
 #+(or allegro
       Genera				;Except for STREAM-ELEMENT-TYPE
       Minima
       Cloe-Runtime
-      CCL-2)				;Except for CLOSE (and WITH-OPEN-STREAM)
+      (and MCL CCL-2)			;Except for CLOSE (and WITH-OPEN-STREAM)
+      Clozure
+      SBCL)
 (pushnew :clim-uses-lisp-stream-functions *features*)
-
-;;; CLIM-ANSI-Conditions means this lisp truly supports the ANSI CL condition system
-;;; CLIM-Conditions      means that it has a macro called DEFINE-CONDITION but that it works
-;;;                      like allegro 3.1.13 or Lucid.
-(pushnew :clim-ansi-conditions *features*)
 
 #+allegro
 (pushnew :allegro-v4.0-constructors *features*)
@@ -86,15 +85,15 @@
 ;; load time only the one case takes effect while at compile time both
 ;; forms are processed. (cim 2/28/96)
 
-(defclass compile-always (defsystem:lisp-module)
+(defclass compile-always (clim-defsystem:lisp-module)
   ())
 
 (defvar *compiled-modules* nil)
 
-(defmethod defsystem:product-newer-than-source ((module compile-always))
+(defmethod clim-defsystem:product-newer-than-source ((module compile-always))
   (member module *compiled-modules*))
 
-(defmethod defsystem:compile-module :after ((module compile-always) &key)
+(defmethod clim-defsystem:compile-module :after ((module compile-always) &key)
   (pushnew module *compiled-modules*))
 
 ;; This defsystem module class only compiles the module if it's not
@@ -102,16 +101,16 @@
 ;; be validly compiled with an ics image - see japanese-input-editor
 ;; (cim 2/28/96)
 
-(defclass compile-once (defsystem:lisp-module)
+(defclass compile-once (clim-defsystem:lisp-module)
   ())
 
-(defmethod defsystem:product-newer-than-source ((module compile-once))
-  (probe-file (defsystem:product-pathname module)))
+(defmethod clim-defsystem:product-newer-than-source ((module compile-once))
+  (probe-file (clim-defsystem:product-pathname module)))
 
 
 
 
-(defsystem clim-utils
+(clim-defsystem clim-utils
     (:default-pathname "clim2:;utils;")
   ;; These files establish a uniform Lisp environment
   (:serial
@@ -122,7 +121,6 @@
    "reader"
    "clos-patches"
    "clos"
-   #+CLIM-conditions "condpat" ;get the define-condition macro
 
    ;; General Lisp extensions
    "utilities"
@@ -140,11 +138,11 @@
    #+Lucid "lucid-stream-functions"
    #+Genera "genera-streams"
    #+allegro "excl-streams"
-   #+CCL-2 "ccl-streams"
+   #+(and MCL CCL-2) "ccl-streams"
 
    ;; Basic utilities for Silica and CLIM
    "clim-macros"
-   ("transformations" #+CLIM-conditions (:load-before-compile "condpat"))
+   "transformations"
    "regions"
    "region-arithmetic"
    "extended-regions"
@@ -152,7 +150,7 @@
    "designs"
    ))
 
-(defsystem clim-silica
+(clim-defsystem clim-silica
     (:default-pathname "clim2:;silica;")
   (:serial
    clim-utils
@@ -189,7 +187,7 @@
    #+acl86win32 ("db-slider" (:load-before-compile "db-border"))
    ))
 
-(defsystem clim-standalone
+(clim-defsystem clim-standalone
     (:default-pathname "clim2:;clim;")
   (:serial
    ;; clim-utils is in clim-silica, should it be?
@@ -202,7 +200,6 @@
    "stream-defprotocols"
    "defresource"
    "temp-strings"
-   #+CCL-2 "coral-defs"
    "clim-defs"
 
    ;; Definitions and protocols
@@ -291,7 +288,7 @@
    #+(or Genera Cloe-Runtime) "prefill"
    ))
 
-(defsystem clim-homegrown
+(clim-defsystem clim-homegrown
     (:default-pathname "clim2:;homegrown;")
   (:serial
    clim-standalone
@@ -307,7 +304,7 @@
 
 
 #+(and allegro (not acl86win32))
-(defsystem xlib
+(clim-defsystem xlib
     (:default-pathname "clim2:;xlib;")
   (:serial
    clim-standalone
@@ -321,7 +318,7 @@
    ))
 
 #+(and allegro (not acl86win32))
-(defsystem wnn
+(clim-defsystem wnn
     (:default-pathname "clim2:;wnn;")
   (:serial
    clim-standalone
@@ -338,7 +335,7 @@
 
 #+(and allegro (not acl86win32))
 (macrolet ((define-xt-system (name file &rest modules)
-	       `(defsystem ,name
+	       `(clim-defsystem ,name
 		    (:default-pathname "clim2:;tk;")
 		  (:serial
 		   xlib
@@ -388,11 +385,11 @@
   ("make-widget")))
 
 #+allegro
-(defsystem last (:default-pathname "clim2:;utils;")
+(clim-defsystem last (:default-pathname "clim2:;utils;")
   (:serial ("last")))
 
 #+(and allegro (not acl86win32))
-(defsystem motif-clim
+(clim-defsystem motif-clim
     (:default-pathname "clim2:;tk-silica;")
   (:serial
    clim-standalone
@@ -413,7 +410,7 @@
    last))
 
 #+(and allegro (not acl86win32))
-(defsystem openlook-clim
+(clim-defsystem openlook-clim
     (:default-pathname "clim2:;tk-silica;")
   (:serial
    clim-standalone

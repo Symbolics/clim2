@@ -239,34 +239,46 @@
         (:horizontal (- right left))
         (:vertical (- bottom top))))))
 
-(defmethod scroll-up-line-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation)
-  (with-slots (current-size current-value port) scroll-bar
+;;; FIXME scroller-pane, orientation don't match expected: client, gadget-id -- jacek.zlydach 2017-07-30
+(defmethod scroll-up-line-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation &optional value)
+  (declare (ignore value))
+  ;; (with-slots (current-size current-value port) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar))
+        (current-value (gadget-value scroll-bar)))
     (with-slots (viewport contents) scroller-pane
       (let* ((contents-range (contents-range scroller-pane orientation))
              (line-value (if (= contents-range 0)
                              0
                              (the single-float
-                               (/ (line-scroll-amount scroller-pane orientation :up)
-                                  (float contents-range  0.0s0)))))
+                                  (/ (line-scroll-amount scroller-pane orientation :up)
+                                     (float contents-range  0.0s0)))))
              (new-value (max 0.0 (- current-value line-value))))        
         (scroll-bar-value-changed-callback
-          scroll-bar scroller-pane orientation new-value current-size)))))
+         scroll-bar scroller-pane orientation new-value current-size)))))
 
-(defmethod scroll-down-line-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation)
-  (with-slots (current-size current-value port) scroll-bar
+;;; FIXME scroller-pane, orientation don't match expected: client, gadget-id -- jacek.zlydach 2017-07-30
+(defmethod scroll-down-line-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation &optional value)
+  (declare (ignore value))
+  ;; (with-slots (current-size current-value port) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar))
+        (current-value (gadget-value scroll-bar)))
     (with-slots (viewport contents) scroller-pane
       (let* ((contents-range (contents-range scroller-pane orientation))
              (line-value (if (= contents-range 0)
                              0
                              (the single-float
-                               (/ (line-scroll-amount scroller-pane orientation :down)
-                                  (float contents-range  0.0s0)))))
+                                  (/ (line-scroll-amount scroller-pane orientation :down)
+                                     (float contents-range  0.0s0)))))
              (new-value (+ current-value line-value)))
         (scroll-bar-value-changed-callback
-          scroll-bar scroller-pane orientation new-value current-size)))))
+         scroll-bar scroller-pane orientation new-value current-size)))))
 
-(defmethod scroll-up-page-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation)
-  (with-slots (current-size current-value) scroll-bar
+;;; FIXME scroller-pane, orientation don't match expected: client, gadget-id -- jacek.zlydach 2017-07-30
+(defmethod scroll-up-page-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation &optional value)
+  (declare (ignore value))
+  ;; (with-slots (current-size current-value) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar))
+        (current-value (gadget-value scroll-bar)))
     (with-slots (viewport contents) scroller-pane
       (let* ((contents-range (contents-range scroller-pane orientation))
              (viewport-range (bounding-rectangle-max-y viewport))
@@ -274,37 +286,48 @@
         (if (zerop contents-range)
             (setq new-value current-value)
             (let ((page-value (the single-float 
-                                (/ viewport-range (float contents-range 0.0s0)))))
+                                   (/ viewport-range (float contents-range 0.0s0)))))
               (setq new-value (max 0.0 (- current-value page-value)))))
         (scroll-bar-value-changed-callback
-          scroll-bar scroller-pane orientation new-value current-size)))))
+         scroll-bar scroller-pane orientation new-value current-size)))))
 
-(defmethod scroll-down-page-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation)
-  (with-slots (current-size current-value) scroll-bar
+;;; FIXME scroller-pane, orientation don't match expected: client, gadget-id -- jacek.zlydach 2017-07-30
+(defmethod scroll-down-page-callback ((scroll-bar scroll-bar-pane) scroller-pane orientation &optional value)
+  (declare (ignore value))
+  ;; (with-slots (current-size current-value) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar))
+        (current-value (gadget-value scroll-bar)))
     (with-slots (viewport contents) scroller-pane
       (let* ((contents-range (contents-range scroller-pane orientation))
              (viewport-range (bounding-rectangle-max-y viewport))
              new-value)
-      (if (zerop contents-range)
-          (setq new-value current-value)
-          (let ((page-value (the single-float 
-                              (/ viewport-range (float contents-range 0.0s0)))))
-            (setq new-value (+ current-value page-value))))
-      (scroll-bar-value-changed-callback
-        scroll-bar scroller-pane orientation new-value current-size)))))
+        (if (zerop contents-range)
+            (setq new-value current-value)
+            (let ((page-value (the single-float 
+                                   (/ viewport-range (float contents-range 0.0s0)))))
+              (setq new-value (+ current-value page-value))))
+        (scroll-bar-value-changed-callback
+         scroll-bar scroller-pane orientation new-value current-size)))))
 
-(defmethod scroll-to-top-callback ((scroll-bar scroll-bar-pane) client id)
-  (with-slots (current-size current-value) scroll-bar
+;;; FIXME scroller-pane, orientation don't match expected: client, gadget-id -- jacek.zlydach 2017-07-30
+(defmethod scroll-to-top-callback ((scroll-bar scroll-bar-pane) client id &optional value)
+  (declare (ignore value))
+  ;; (with-slots (current-size current-value) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar)))
     (scroll-bar-value-changed-callback scroll-bar client id 0 current-size)))
 
-(defmethod scroll-to-bottom-callback ((scroll-bar scroll-bar-pane) client id)
-  (with-slots (current-size current-value) scroll-bar
-    (scroll-bar-value-changed-callback
-      scroll-bar client id 1.0 current-size)))
+;;; FIXME scroller-pane, orientation don't match expected: client, gadget-id -- jacek.zlydach 2017-07-30
+(defmethod scroll-to-bottom-callback ((scroll-bar scroll-bar-pane) client id &optional value)
+  (declare (ignore value))
+  ;; (with-slots (current-size current-value) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar)))
+    (scroll-bar-value-changed-callback scroll-bar client id 1.0 current-size)))
 
 (defmethod scroll-line-to-top-callback ((scroll-bar scroll-bar-pane)
                                         scroller-pane id orientation x y)
-  (with-slots (current-size current-value) scroll-bar
+  ;; (with-slots (current-size current-value) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar))
+        (current-value (gadget-value scroll-bar)))
     (with-slots (viewport contents) scroller-pane
       ;; --- scroll-bar may not be the right thing if it's not the same
       ;; size as the contents pane - Davo 6/30/92.
@@ -320,23 +343,25 @@
               (unless (zerop contents-range)
                 (let* ((viewport-range (viewport-range scroller-pane orientation))
                        (contents-min
-                         (ecase orientation (:horizontal cleft) (:vertical ctop)))
+                        (ecase orientation (:horizontal cleft) (:vertical ctop)))
                        (viewport-min
-                         (ecase orientation (:horizontal vleft) (:vertical vtop)))
+                        (ecase orientation (:horizontal vleft) (:vertical vtop)))
                        (mouse-offset
-                         (ecase orientation
-                           (:vertical (/ (- y top) (float (- bottom top) 0.0s0)))
-                           (:horizontal (/ (- x left) (float (- right left) 0.0s0)))))
+                        (ecase orientation
+                          (:vertical (/ (- y top) (float (- bottom top) 0.0s0)))
+                          (:horizontal (/ (- x left) (float (- right left) 0.0s0)))))
                        (pos (/ (- (+ viewport-min (* viewport-range mouse-offset))
                                   contents-min)
                                contents-range)))
                   (scroll-bar-value-changed-callback
-                    scroll-bar scroller-pane id
-                    pos current-size))))))))))
+                   scroll-bar scroller-pane id
+                   pos current-size))))))))))
 
 (defmethod scroll-line-to-bottom-callback ((scroll-bar scroll-bar-pane)
                                            scroller-pane id orientation x y)
-  (with-slots (current-size current-value) scroll-bar
+  ;; (with-slots (current-size current-value) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar))
+        (current-value (gadget-value scroll-bar)))
     (with-slots (viewport contents) scroller-pane
       ;; --- scroll-bar may not be the right thing if its not the same
       ;; size as the contents pane - Davo 6/30/92.
@@ -352,34 +377,36 @@
               (unless (zerop contents-range)
                 (let* ((viewport-range (viewport-range scroller-pane orientation))
                        (contents-min
-                         (ecase orientation (:horizontal cleft) (:vertical ctop)))
+                        (ecase orientation (:horizontal cleft) (:vertical ctop)))
                        (viewport-min
-                         (ecase orientation (:horizontal vleft) (:vertical vtop)))
+                        (ecase orientation (:horizontal vleft) (:vertical vtop)))
                        (mouse-offset
-                         (ecase orientation
-                           (:vertical (/ (- y top) (float (- bottom top) 0.0s0)))
-                           (:horizontal (/ (- x left) (float (- right left) 0.0s0)))))
+                        (ecase orientation
+                          (:vertical (/ (- y top) (float (- bottom top) 0.0s0)))
+                          (:horizontal (/ (- x left) (float (- right left) 0.0s0)))))
                        (pos (/ (- (+ viewport-min (* viewport-range mouse-offset))
                                   viewport-range contents-min)
                                contents-range)))
                   (scroll-bar-value-changed-callback
-                    scroll-bar scroller-pane id (max 0 pos) current-size))))))))))
+                   scroll-bar scroller-pane id (max 0 pos) current-size))))))))))
 
 (defmethod scroll-elevator-callback ((scroll-bar scroll-bar-pane)
                                      scroller-pane id orientation x y)
-  (with-slots (current-size current-value) scroll-bar
+  ;; (with-slots (current-size current-value) scroll-bar) -- NOTE those slots don't exist. -- jacek.zlydach 2017-06-03
+  (let ((current-size (scroll-bar-size scroll-bar))
+        (current-value (gadget-value scroll-bar)))
     (with-slots (viewport contents) scroller-pane
       ;; --- scroll-bar may not be the right thing if its not the same
       ;; size as the contents pane - Davo 6/30/92.
       (with-bounding-rectangle* (left top right bottom)
           (sheet-region scroll-bar)
         (let* ((mouse-offset
-                 (- (ecase orientation
-                      (:vertical (/ (- y top) (float (- bottom top) 0.0s0)))
-                      (:horizontal (/ (- x left) (float (- right left) 0.0s0))))
-                    (/ current-size 2.0s0))))
+                (- (ecase orientation
+                     (:vertical (/ (- y top) (float (- bottom top) 0.0s0)))
+                     (:horizontal (/ (- x left) (float (- right left) 0.0s0))))
+                   (/ current-size 2.0s0))))
           (scroll-bar-value-changed-callback
-            scroll-bar scroller-pane id (min 1.0s0 (max 0.0s0 mouse-offset)) current-size))))))
+           scroll-bar scroller-pane id (min 1.0s0 (max 0.0s0 mouse-offset)) current-size))))))
 
 ;;; Set the indicator to the proper size and location (size and value are between 0 and 1)
 (defmethod change-scroll-bar-values ((scroll-bar scroll-bar-pane)

@@ -11,7 +11,7 @@
 (in-package :clim-utils)
 
 #+Allegro-v4.0-constructors
-(eval-when (compile eval load) (require :constructor))
+(eval-when (:compile-toplevel :execute :load-toplevel) (require :constructor))
 
 ;;; ----------------
 ;;; Constructors
@@ -36,7 +36,7 @@
 (defmacro define-constructor (name class lambda-list &body initargs)
   (let ((rest-arg (member '&rest lambda-list)))
     `(progn
-       (eval-when (compile load eval) (proclaim '(inline ,name)))
+       (eval-when (:compile-toplevel :load-toplevel :execute) (proclaim '(inline ,name)))
        (defun ,name ,lambda-list
 	 ,@(when rest-arg
 	     `((declare (dynamic-extent ,(second rest-arg)))))
@@ -70,7 +70,7 @@
 ;; initialize SLOT-2 with value of (1+ OVER) using SLOT-VALUE with 'SLOT-2
 ;; or MAKE-INSTANCE with 'SLOT-2.
 
-#+CCL-2
+#+(and MCL CCL-2)
 (defmacro define-constructor-using-prototype-instance
 	  (name class args &body tuples)
   (let ((proto-var (make-symbol (format nil "*a ~A*" class)))
@@ -89,7 +89,7 @@
 		     tuples)
 	   ,inst)))))
 
-#-CCL-2
+#-(and MCL CCL-2)
 (defmacro define-constructor-using-prototype-instance
 	  (name class args &body tuples)
   `(define-group ,name define-constructor-using-prototype-instance
@@ -106,7 +106,7 @@
 
 ;(defvar *dynamic-classes* (make-hash-table :test #'equal))
 ;
-;(eval-when (compile load eval) (proclaim '(inline %make-standard-class)))
+;(eval-when (:compile-toplevel :load-toplevel :execute) (proclaim '(inline %make-standard-class)))
 ;(defun %make-standard-class (name supers)
 ;
 ;  #+Lucid
@@ -224,13 +224,12 @@
   (values `(setf ,accessor-name) t))
 
 (defun make-setf*-function-name (accessor-name)
-  (declare (values setf-function-name defsetf-done-p))
   (let ((writer (get accessor-name 'setf-function-name))
 	(old-p nil))
     (when writer
       (ignore-errors
 	(multiple-value-bind (vars vals store-vars store-form access-form)
-	    (lisp:get-setf-expansion `(,accessor-name foo))
+	    (cl:get-setf-expansion `(,accessor-name foo))
 	  (declare (ignore vars vals store-vars access-form))
 	  (when (or (equal (first store-form) writer)
 		    (and (eq (first store-form) 'funcall)
@@ -249,7 +248,7 @@
 
 (defun expand-defsetf-for-defmethod*
        (accessor-name accessor-arg real-arglist setf-function-name)
-  `(lisp:define-setf-expander
+  `(cl:define-setf-expander
      ,accessor-name (,accessor-arg)	;Only last one is real.
      (flet ((make-temp (name) (gensymbol name 'temp)))
        (let ((temps (list (make-temp ',accessor-arg)))
@@ -276,8 +275,6 @@
 ;; For example, (DEFMETHOD* (SETF CURSOR-POSITION) (NX NY (CURSOR T)) ...)
 ;; Then (SETF (CURSOR-POSITION cursor) (VALUES nx ny))
 (defmacro defmethod* (name &body quals-lambda-list-and-body)
-  (declare (arglist name [qualifiers]* lambda-list &body body))
-  #+Genera (declare (zwei:indentation . zwei:indent-for-clos-defmethod))
   (assert (and (listp name) (eq (first name) 'setf) (null (cddr name))) ()
 	  "Syntax error in ~S: This only works on ~S methods" 'defmethod* 'setf)
   (let (qualifiers real-arglist body accessor-arg

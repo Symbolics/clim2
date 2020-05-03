@@ -8,7 +8,7 @@
   ((ink :initarg :ink :reader unsupported-ink)
    (message :initarg :message :reader unsupported-ink-message))
   (:report (lambda (c s)
-             (format s "Ink ~A is not supported by the backend: ~A."
+             (cl:format s "Ink ~A is not supported by the backend: ~A."
                      (unsupported-ink c)
                      (unsupported-ink-message c)))))
 
@@ -105,9 +105,9 @@
 ;; removed out hard-wired white background hack for nt (cim 10/9/96)
 
 (defclass sheet-with-resources-mixin ()
-  ((foreground :initform nil :accessor pane-foreground)
-   (background :initform nil :accessor pane-background)
-   (text-style :initform nil :accessor pane-text-style)
+  ((foreground :initform nil :initarg :foreground :accessor pane-foreground)
+   (background :initform nil :initarg :background :accessor pane-background)
+   (text-style :initform nil :initarg :text-style :accessor pane-text-style)
    (initargs :initform nil :reader sheet-with-resources-initargs)))
   
 (defmethod initialize-instance :after 
@@ -221,7 +221,7 @@
 (defmethod print-object ((line-style standard-line-style) stream)
   (print-unreadable-object (line-style stream :type t :identity t)
     (with-slots (unit thickness joint-shape cap-shape dashes) line-style
-      (format stream "Units ~(~A~), thickness ~D, joint ~(~A~), cap ~(~A~), dashes ~S"
+      (cl:format stream "Units ~(~A~), thickness ~D, joint ~(~A~), cap ~(~A~), dashes ~S"
               unit thickness joint-shape cap-shape dashes))))
 
 (defvar +default-line-style+ (make-instance 'standard-line-style))
@@ -487,7 +487,6 @@
 
 (defoperation text-size medium-protocol
   ((medium medium) string &key text-style start end)
-  (declare (values largest-x total-height last-x last-y baseline))
   (:no-defgeneric t))
 
 

@@ -67,6 +67,33 @@
 (defmethod note-gadget-deactivated ((client t) (gadget basic-gadget))
   nil)
 
+
+
+;;; defgenerics for callbacks.
+;;; Added by jacek.zlydach on 2017-07-30.
+;;; NOTE: There's some discrepancy between the code here and CLIM spec - the latter
+;;; defines following callbacks as 3-argument generic functions. To resolve it,
+;;; the fourth argument, used by this implementation, has been marked optional.
+
+(defgeneric scroll-to-bottom-callback (pane client id &optional value)
+  (:documentation "Invoked when appropriate hotspot of a scroll bar is clicked on."))
+
+(defgeneric scroll-to-top-callback (pane client id &optional value)
+  (:documentation "Invoked when appropriate hotspot of a scroll bar is clicked on."))
+
+(defgeneric scroll-up-line-callback (pane client id &optional value)
+  (:documentation "Invoked when appropriate hotspot of a scroll bar is clicked on."))
+
+(defgeneric scroll-down-line-callback (pane client id &optional value)
+  (:documentation "Invoked when appropriate hotspot of a scroll bar is clicked on."))
+
+(defgeneric scroll-up-page-callback (pane client id &optional value)
+  (:documentation "Invoked when appropriate hotspot of a scroll bar is clicked on."))
+
+(defgeneric scroll-down-page-callback (pane client id &optional value)
+  (:documentation "Invoked when appropriate hotspot of a scroll bar is clicked on."))
+
+
 
 ;;; Value Gadgets
 
@@ -195,7 +222,7 @@
   (if (and (slot-boundp object 'label)
 	   (stringp (slot-value object 'label)))
       (print-unreadable-object (object stream :type t :identity t)
-	(format stream "~A" (slot-value object 'label)))
+	(cl:format stream "~A" (slot-value object 'label)))
       (call-next-method)))
 
 
@@ -343,7 +370,7 @@
 (defmethod print-object ((gadget scroll-bar) stream)
   ;; Added this method for easier debugging (alemmens, 2004-12-24).
   (print-unreadable-object (gadget stream :type t :identity t)
-    (format stream "from ~A to ~A (size ~A, line ~A, value ~A)"
+    (cl:format stream "from ~A to ~A (size ~A, line ~A, value ~A)"
             (gadget-min-value gadget)
             (gadget-max-value gadget)
             (if (slot-boundp gadget 'size)
@@ -376,12 +403,10 @@
 (defmethod (setf gadget-value) :around
 	   (value (gadget scroll-bar) &key invoke-callback)
   (declare (ignore invoke-callback))
-  (assert (and (<= (+ value (scroll-bar-size gadget))
-                 (gadget-max-value gadget))
-            (>= value (gadget-min-value gadget)))
-    (value)
-    "Scroll bar value ~A out of range" value)
-  (call-next-method value gadget))
+  (call-next-method
+   (alexandria:clamp value (gadget-min-value gadget)
+                     (- (gadget-max-value gadget) (scroll-bar-size gadget)))
+                    gadget))
 
 (defmethod (setf line-increment) :around (value (object scroll-bar))
   (assert (and (> value (gadget-min-value object))
@@ -401,32 +426,32 @@
 
 ;;; Here are the callbacks that were once called out in the CLIM spec:
 
-(defmethod scroll-to-bottom-callback ((pane scroll-bar) client id value)
+(defmethod scroll-to-bottom-callback ((pane scroll-bar) client id &optional value) ;TODO some sane default value? -- jacek.zlydach 2017-07-30
   (value-changed-callback pane client id value)
   (let ((callback (scroll-bar-scroll-to-bottom-callback pane)))
     (when callback (funcall callback pane))))
 
-(defmethod scroll-to-top-callback ((pane scroll-bar) client id value)
+(defmethod scroll-to-top-callback ((pane scroll-bar) client id &optional value) ;TODO some sane default value? -- jacek.zlydach 2017-07-30
   (value-changed-callback pane client id value)
   (let ((callback (scroll-bar-scroll-to-top-callback pane)))
     (when callback (funcall callback pane))))
 
-(defmethod scroll-up-line-callback ((pane scroll-bar) client id value)
+(defmethod scroll-up-line-callback ((pane scroll-bar) client id &optional value) ;TODO some sane default value? -- jacek.zlydach 2017-07-30
   (value-changed-callback pane client id value)
   (let ((callback (scroll-bar-scroll-up-line-callback pane)))
     (when callback (funcall callback pane))))
 
-(defmethod scroll-down-line-callback ((pane scroll-bar) client id value)
+(defmethod scroll-down-line-callback ((pane scroll-bar) client id &optional value) ;TODO some sane default value? -- jacek.zlydach 2017-07-30
   (value-changed-callback pane client id value)
   (let ((callback (scroll-bar-scroll-down-line-callback pane)))
     (when callback (funcall callback pane))))
 
-(defmethod scroll-up-page-callback ((pane scroll-bar) client id value)
+(defmethod scroll-up-page-callback ((pane scroll-bar) client id &optional value) ;TODO some sane default value? -- jacek.zlydach 2017-07-30
   (value-changed-callback pane client id value)
   (let ((callback (scroll-bar-scroll-up-page-callback pane)))
     (when callback (funcall callback pane))))
 
-(defmethod scroll-down-page-callback ((pane scroll-bar) client id value)
+(defmethod scroll-down-page-callback ((pane scroll-bar) client id &optional value) ;TODO some sane default value? -- jacek.zlydach 2017-07-30
   (value-changed-callback pane client id value)
   (let ((callback (scroll-bar-scroll-down-page-callback pane)))
     (when callback (funcall callback pane))))
@@ -478,13 +503,11 @@
 ;;;
 
 (defclass push-button 
-	  (action-gadget labelled-gadget-mixin) 
-    ((show-as-default :initform nil :initarg :show-as-default
-		      :accessor push-button-show-as-default)
-     #+(or aclpc acl86win32)
-     (pattern :initarg :pattern)
-     #+(or aclpc acl86win32)
-     (icon-pattern :initarg :icon-pattern)))
+    (action-gadget labelled-gadget-mixin) 
+  ((show-as-default :initform nil :initarg :show-as-default
+                    :accessor push-button-show-as-default)
+   (pattern :initarg :pattern)
+   (icon-pattern :initarg :icon-pattern)))
 
 
 ;;; Toggle button
@@ -784,7 +807,7 @@ The text-field must have the focus before you can call this function."))
 	:height h :min-height 0 :max-height max-height))))
 
 ;;;#+(or aclpc acl86win32)
-;;;(eval-when (compile load eval)
+;;;(eval-when (:compile-toplevel :load-toplevel :execute)
 ;;;   ;;mm: 11Jan95 - this is defined later in clim\db-strea
 ;;;   (unless (ignore-errors (find-class 'clim-stream-pane))
 ;;;      (defclass clim-stream-pane () ())))
@@ -866,76 +889,77 @@ The text-field must have the focus before you can call this function."))
     (bounding-rectangle-width pane) (bounding-rectangle-height pane)))
 
 ;;--- Work on this
-#+++ignore
 (defmethod note-sheet-region-changed :around ((viewport viewport) &key port-did-it)
   #-aclpc (declare (ignore port-did-it))
   (multiple-value-bind (changedp
 			hscroll-bar hscroll-bar-enabled-p
 			vscroll-bar vscroll-bar-enabled-p)
-      (compute-dynamic-scroll-bar-values viewport)
+      (compute-dynamic-scroll-bar-values (viewport-scroller-pane viewport))
     (if changedp
-	 (update-dynamic-scroll-bars
-	  viewport changedp
-	  hscroll-bar hscroll-bar-enabled-p
-	  vscroll-bar vscroll-bar-enabled-p)
+        (update-dynamic-scroll-bars (viewport-scroller-pane viewport)
+                                    changedp
+                                    hscroll-bar
+                                    hscroll-bar-enabled-p
+                                    vscroll-bar
+                                    vscroll-bar-enabled-p)
 	(call-next-method))))
 
 
-;(defun update-dynamic-scroll-bars (scroller changedp
-;				    hscroll-bar hscroll-bar-enabled-p
-;				    vscroll-bar vscroll-bar-enabled-p
-;				    &optional relayout)
-;  (when changedp
-;    (when hscroll-bar
-;      (setf (sheet-enabled-p hscroll-bar) hscroll-bar-enabled-p))
-;    (when vscroll-bar
-;      (setf (sheet-enabled-p vscroll-bar) vscroll-bar-enabled-p))
-;    (when (or (and hscroll-bar (not hscroll-bar-enabled-p))
-;		(and vscroll-bar (not vscroll-bar-enabled-p)))
-;      (let* ((contents (slot-value scroller 'contents))
-;	       (c-extent (viewport-contents-extent
-;			  (pane-viewport contents))))
-;	  (multiple-value-bind (vx vy)
-;	     (window-viewport-position contents)
-;	    (window-set-viewport-position
-;	     contents
-;	     (if (and hscroll-bar (not hscroll-bar-enabled-p))
-;		 (bounding-rectangle-min-x c-extent)
-;		 vx)
-;	     (if (and vscroll-bar (not vscroll-bar-enabled-p))
-;		 (bounding-rectangle-min-y c-extent)
-;		 vy)))))
-;    (clear-space-requirement-caches-in-tree scroller)
-;    (when relayout
-;      ;;--- This is kinda bogus.  If this was a generic scroller then
-;      ;;--- you want to layout the table.
-;      (let ((table (slot-value scroller 'viewport)))
-;	  (multiple-value-bind (width height)
-;	      (bounding-rectangle-size table)
-;	    (allocate-space table width height))))))
+(defun update-dynamic-scroll-bars (scroller changedp
+				    hscroll-bar hscroll-bar-enabled-p
+				    vscroll-bar vscroll-bar-enabled-p
+				    &optional relayout)
+ (when changedp
+   (when hscroll-bar
+     (setf (sheet-enabled-p hscroll-bar) hscroll-bar-enabled-p))
+   (when vscroll-bar
+     (setf (sheet-enabled-p vscroll-bar) vscroll-bar-enabled-p))
+   (when (or (and hscroll-bar (not hscroll-bar-enabled-p))
+		(and vscroll-bar (not vscroll-bar-enabled-p)))
+     (let* ((contents (slot-value scroller 'contents))
+	       (c-extent (viewport-contents-extent
+			  (pane-viewport contents))))
+	  (multiple-value-bind (vx vy)
+	     (window-viewport-position contents)
+	    (window-set-viewport-position
+	     contents
+	     (if (and hscroll-bar (not hscroll-bar-enabled-p))
+		 (bounding-rectangle-min-x c-extent)
+		 vx)
+	     (if (and vscroll-bar (not vscroll-bar-enabled-p))
+		 (bounding-rectangle-min-y c-extent)
+		 vy)))))
+   (clear-space-requirement-caches-in-tree scroller)
+   (when relayout
+     ;;--- This is kinda bogus.  If this was a generic scroller then
+     ;;--- you want to layout the table.
+     (let ((table (slot-value scroller 'viewport)))
+	  (multiple-value-bind (width height)
+	      (bounding-rectangle-size table)
+	    (allocate-space table width height))))))
 
-;(defun compute-dynamic-scroll-bar-values (scroller)
-;  (let* ((hscroll-bar (scroller-pane-horizontal-scroll-bar scroller))
-;	  (vscroll-bar (scroller-pane-vertical-scroll-bar scroller))
-;	  (scroll-bar-policy (scroller-pane-scroll-bar-policy scroller)))
-;    (if (eq scroll-bar-policy :dynamic)
-;	 (multiple-value-bind (vwidth vheight)
-;	     (bounding-rectangle-size scroller)
-;	   (multiple-value-bind (cwidth cheight)
-;	       (bounding-rectangle-size
-;		 (viewport-contents-extent (slot-value scroller 'viewport)))
-;	     (let ((ohenp (sheet-enabled-p hscroll-bar))
-;		   (ovenp (sheet-enabled-p vscroll-bar))
-;		   (nhenp (> cwidth vwidth))
-;		   (nvenp (> cheight vheight)))
-;	       (values
-;		 (not (and (eq ohenp nhenp)
-;			   (eq ovenp nvenp)))
-;		 (and (not (eq ohenp nhenp)) hscroll-bar)
-;		 nhenp
-;		 (and (not (eq ovenp nvenp)) vscroll-bar)
-;		 nvenp))))
-;	 (values nil nil nil nil nil))))
+(defun compute-dynamic-scroll-bar-values (scroller)
+  (let* ((hscroll-bar (scroller-pane-horizontal-scroll-bar scroller))
+         (vscroll-bar (scroller-pane-vertical-scroll-bar scroller))
+         (scroll-bar-policy (scroller-pane-scroll-bar-policy scroller)))
+    (if (eq scroll-bar-policy :dynamic)
+        (multiple-value-bind (vwidth vheight)
+            (bounding-rectangle-size scroller)
+          (multiple-value-bind (cwidth cheight)
+              (bounding-rectangle-size
+               (viewport-contents-extent (slot-value scroller 'viewport)))
+            (let ((ohenp (sheet-enabled-p hscroll-bar))
+                  (ovenp (sheet-enabled-p vscroll-bar))
+                  (nhenp (> cwidth vwidth))
+                  (nvenp (> cheight vheight)))
+              (values
+               (not (and (eq ohenp nhenp)
+                         (eq ovenp nvenp)))
+               (and (not (eq ohenp nhenp)) hscroll-bar)
+               nhenp
+               (and (not (eq ovenp nvenp)) vscroll-bar)
+               nvenp))))
+        (values nil nil nil nil nil))))
 
 (defun viewport-contents-extent (viewport)
   (let ((contents (sheet-child viewport)))

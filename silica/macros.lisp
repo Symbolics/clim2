@@ -7,16 +7,14 @@
 ;;;"Copyright (c) 1991, 1992 Franz, Inc.  All rights reserved.
 ;;; Portions copyright (c) 1992 Symbolics, Inc.  All rights reserved."
 
-(defgeneric invoke-with-sheet-medium (sheet continuation)
-  (declare (dynamic-extent continuation)))
+(defgeneric invoke-with-sheet-medium (sheet continuation))
 
 (defmacro with-sheet-medium ((medium sheet) &body body)
   `(flet ((with-sheet-medium-body (,medium) ,@body))
      (declare (dynamic-extent #'with-sheet-medium-body))
      (invoke-with-sheet-medium ,sheet #'with-sheet-medium-body)))
 
-(defgeneric invoke-with-sheet-medium-bound (sheet medium continuation)
-  (declare (dynamic-extent continuation)))
+(defgeneric invoke-with-sheet-medium-bound (sheet medium continuation))
 
 (defmacro with-sheet-medium-bound ((sheet medium) &body body)
   `(flet ((with-sheet-medium-bound-body () ,@body))
@@ -67,3 +65,19 @@
   (declare (ignore pane-options))
   (warn "~S not inside a call to ~S"
         'make-clim-stream-pane 'with-look-and-feel-realization))
+
+;;;
+;;; Temporary set of Generic Function defs
+;;;
+
+;;
+;; Slot accessors
+;;
+
+(defgeneric stream-output-history (stream))
+;(defgeneric replay (history sheet &optional region))
+(defgeneric output-recording-stream-p (stream))
+(defgeneric window-shift-visible-region (sheet left top right bottom nleft ntop nright nbotton))
+(defgeneric clim-internals::maybe-redraw-input-editor-stream (contents region))
+(defgeneric viewport-region-changed (sheet viewport))
+(defgeneric native-gadget-range* (gadget))

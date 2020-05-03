@@ -23,7 +23,6 @@
 ;;; actually was incorporated into the result.
 ;;; We use uninterned symbols as the dummy values.
 (defun meta-evaluate-form (form lambda-list &optional another-lambda-list)
-  (declare (values value bindings more-bindings))
   (let ((bindings nil) (more-bindings nil))
     (labels ((do-lambda-list (lambda-list)
                (dolist (item lambda-list)
@@ -276,28 +275,12 @@
 ;;; JonL says that the latest CLOS spec says that you aren't allowed to mix
 ;;; objects of different metaclasses unless there is a VALIDATE-SUPERTYPE
 ;;; method that says that you can.
-#+Lucid
-(defmethod clos-system::validate-superclass
-           ((class presentation-type-class) (meta standard-class))
-  t)
 
-#+Symbolics
-(defmethod clos-internals::validate-superclass
-           ((class presentation-type-class) (meta standard-class))
-  t)
-
-#+aclpc
-(defmethod acl:validate-superclass ;; mop moved to acl package
-           ((class presentation-type-class) (meta standard-class))
-  t)
-
-#+acl86win32
-(defmethod clos:validate-superclass
-           ((class presentation-type-class) (meta standard-class))
-  t)
+(defmethod c2mop:validate-superclass
+    ((class presentation-type-class) (meta standard-class)) t)
 
 ;;;#+(or aclpc acl86win32)
-;;;(eval-when (compile load eval)
+;;;(eval-when (:compile-toplevel :load-toplevel :execute)
 ;;;   ;;mm: 11Jan95 - this is defined later in  ???
 ;;;   (unless (ignore-errors (find-class 'basic-history))
 ;;;      (defclass basic-history () ())))
@@ -314,11 +297,11 @@
      ',(class-presentation-type-name object #+Symbolics 'compile-file)
      ',(presentation-type-parameters object)
      ',(presentation-type-options object)
-     ',(let ((superclasses (class-direct-superclasses object)))
+     ',(let ((superclasses (closer-mop:class-direct-superclasses object)))
          (if (cdr superclasses)
              (mapcar #'(lambda (class)
                          (class-presentation-type-name class #+Symbolics 'compile-file))
-                     (class-direct-superclasses object))
+                     (closer-mop:class-direct-superclasses object))
              ;; Use an atom instead of a one-element list to work around a Lucid bug
              ;; where it blows up if anything here is a list that gets consed freshly
              ;; each time make-load-form is called, because make-load-form gets called
@@ -349,7 +332,7 @@
 ;;; This hash table is keyed by the presentation type name and yields the class.
 (defvar *presentation-type-class-table* (make-hash-table))
 
-#+(or CCL-2 aclpc)
+#+(or (and MCL CCL-2) aclpc Clozure sbcl)
 (defvar *presentation-class-type-table* (make-hash-table))
 
 #+aclpc
@@ -361,7 +344,8 @@
 ;;; Find the class corresponding to the presentation type named NAME
 (defun find-presentation-type-class (name &optional (errorp t) environment)
   #+Genera (declare (inline compile-file-environment-p))
-  #+allegro (setq environment (compile-file-environment-p environment))
+  #+(or allegro Clozure)
+  (setq environment (compile-file-environment-p environment))
   (macrolet ((not-found (name)
                `(if (gethash name *presentation-type-abbreviation-table*)
                     (error "~S is a presentation type abbreviation, not the name of a presentation type" ,name)
@@ -392,8 +376,10 @@
 ;;; Return the presentation type name corresponding to a class
 ;;; This is essentially the inverse of find-presentation-type-class
 (defmethod class-presentation-type-name ((class presentation-type-class) &optional environment)
-  #-aclpc (declare (ignore environment))
-  #-aclpc (second (class-name class))
+  #-(or aclpc) (declare (ignore environment))
+  #-(or aclpc Clozure sbcl) (second (class-name class))
+  #+Clozure (class-name class)
+  #+sbcl (class-name class)
   #+aclpc (gethash class *presentation-class-name-table*)
 )
 
@@ -409,10 +395,8 @@
          *class-prototype-for-t*)
         (t
          ;; Finalization is necessary according to AMOP. -smh 18may93
-         (unless (#-aclpc clos:class-finalized-p
-                  #+aclpc acl:class-finalized-p class)
-           (#-aclpc clos:finalize-inheritance
-            #+aclpc acl:finalize-inheritance class))
+         (unless (closer-mop:class-finalized-p class)
+           (closer-mop:finalize-inheritance class))
          (class-prototype class))))
 
 (defun-inline find-class-precedence-list (class)
@@ -421,11 +405,9 @@
   ;; can come up with structure classes
   #+Symbolics (find-class-prototype class)
   ;; Finalization is necessary according to AMOP. -smh 18may93
-  (unless (#-aclpc clos:class-finalized-p
-           #+aclpc acl:class-finalized-p class)
-    (#-aclpc clos:finalize-inheritance
-     #+aclpc acl:finalize-inheritance class))
-  (class-precedence-list class))
+  (unless (closer-mop:class-finalized-p class)
+    (closer-mop:finalize-inheritance class))
+  (closer-mop:class-precedence-list class))
 
 ;;; Hide the long name when printing these
 (defmethod print-object ((object presentation-type-class) stream)
@@ -462,7 +444,7 @@
 ;;; COMPILE-TIME-CLASSes, while the right place to hang all this information,
 ;;; unfortunately do NOT have CLASS-PRECEDENCE-LISTS, or any information of
 ;;; value other than name.
-#+CCL-2
+#+ccl
 (defmethod acceptable-presentation-type-class ((class ccl::compile-time-class))
   nil)
 
@@ -477,9 +459,6 @@
 
 ;;; Given a presentation type class get its internal inheritance information
 (defun presentation-type-inheritance (class &optional environment)
-  (declare (values direct-supertypes                ;These three values are lists of
-                   parameter-massagers                ;equal length and parallel contents.
-                   options-massagers))
   (let ((list (cond ((eq class (second *presentation-type-being-defined*))
                      (cddddr *presentation-type-being-defined*))
                     ((and (compile-file-environment-p environment)
@@ -562,8 +541,8 @@
                the same name as a CLOS class.")))
     ;; Generate the expander function and pass it to load-presentation-type-abbreviation
     `(define-group ,name define-presentation-type-abbreviation
-       (eval-when (compile)
-         #+(or Genera Cloe-Runtime Minima CCL-2)
+       (eval-when (:compile-toplevel)
+         #+(or Genera Cloe-Runtime Minima (and MCL CCL-2))
            (setf (compile-time-property ',name 'presentation-type-abbreviation)
                  ,function)
          #+(or Lucid allegro aclpc)
@@ -599,7 +578,6 @@
 
 ;;; Like macroexpand-1
 (defun expand-presentation-type-abbreviation-1 (type &optional environment)
-  (declare (values expansion expanded))
   (with-presentation-type-decoded (name parameters options) type
     (let ((expander (or (and (compile-file-environment-p environment)
                              (compile-time-property name 'presentation-type-abbreviation))
@@ -639,7 +617,6 @@
 
 ;;; Like macroexpand
 (defun expand-presentation-type-abbreviation (type &optional environment)
-  (declare (values expansion expanded))
   (let ((flag nil))
     (loop
       (multiple-value-bind (expansion expanded)
@@ -700,7 +677,7 @@
            (direct-superclasses (and class
                                      (mapcar #'(lambda (class)
                                                  (class-proper-name class environment))
-                                             (class-direct-superclasses class))))
+                                             (closer-mop:class-direct-superclasses class))))
            ;; Default the supertype if unsupplied or nil
            ;; This assumes consistency of the compile-time and load-time environments.  Okay?
            (inherit-from (cond (inherit-from)
@@ -745,7 +722,7 @@
           ;; Generate the form that stores all the information and defines the
           ;; automatically-defined presentation methods
           `(progn
-             (eval-when (compile)
+             (eval-when (:compile-toplevel)
                (ensure-presentation-type ',name ',parameters ',options ',direct-supertypes
                                          ',description ',history
                                          ',parameters-are-types
@@ -786,10 +763,7 @@
         #+allegro
         (structure-class
           (setq direct-supertypes 'common-lisp:structure-object))
-        #+CCL-2
-        (structure-class
-          (setq direct-supertypes 'structure-object))
-        #+aclpc
+        #+(or aclpc ccl sbcl)
         (cl:structure-class
           (setq direct-supertypes 'cl:structure-object))
         (t
@@ -806,13 +780,13 @@
            (class (find-presentation-type-class name nil environment))
            #-CLIM-extends-CLOS
            (old-direct-superclasses (if class
-                                        (class-direct-superclasses class)
+                                        (closer-mop:class-direct-superclasses class)
                                         direct-superclasses))
-           #+(or CCL-2 aclpc)
+           #+(or aclpc ccl sbcl)
            (registered-class-name
              (let ((keyword-package (find-package :keyword))
-                   (*package* (find-package :lisp)))
-               (intern (lisp:format nil "~A ~S" 'ptype name) keyword-package)))
+                   (*package* (find-package :cl)))
+               (intern (concatenate 'string "PTYPE " (symbol-name name)) keyword-package)))
            #+aclntignore
            (registered-class-name
              (let ((ptype-package (find-package :registered-presentation-classes))
@@ -847,15 +821,13 @@
                         name (class-proper-name superclass environment)
                         'define-presentation-type
                         (typecase superclass
-                          (funcallable-standard-class 'defgeneric)
+                          (closer-mop:funcallable-standard-class 'defgeneric)
                           (standard-class 'defclass)
-                          #+Symbolics                ;Symbolics CLOS, that is
-                          (clos:structure-class 'defstruct)
-                          #+CCL-2 (structure-class 'defstruct)
-                          #+aclpc (cl:structure-class 'defstruct)
+                          #+(or aclpc ccl sbcl) (cl:structure-class 'defstruct)
                           #+allegro (structure-class 'defstruct))
                         name)))
-             (let ((class-name `(presentation-type ,name)))
+             (let (#+(or Genera Cloe-Runtime (and MCL CCL-2))
+                   (class-name `(presentation-type ,name)))
                (setq class
                      #-Lucid
                      (make-instance 'presentation-type-class
@@ -863,28 +835,26 @@
                         ;; Symbolics CLOS, that is
                         #+(or Genera Cloe-Runtime) 'clos-internals::name
                         #+(or Genera Cloe-Runtime) class-name
-                        #+(or aclpc CCL-2) :name
-                        #+CCL-2 class-name
-                        #+aclpc registered-class-name
-                        #-(or PCL aclpc CCL-2 allegro) :slots
-                        #+(or PCL aclpc CCL-2 allegro) :direct-slots
-                        nil)
-                     #+Lucid (make-instance 'presentation-type-class
-                                     :direct-superclasses direct-superclasses
-                                     :name class-name))
+                        #+(or aclpc ccl sbcl) :name
+                        #+(or aclpc ccl sbcl) registered-class-name
+                        #-(or PCL aclpc allegro sbcl ccl) :slots
+                        #+(or PCL aclpc allegro sbcl ccl) :direct-slots
+                        nil))
                ;; Workaround for apparent MCL bug that otherwise causes
                ;; very bad things to happen
-               #+CCL-2 (setf (slot-value class 'ccl::slots) (cons nil (vector)))
+               #+(and MCL CCL-2) (setf (slot-value class 'ccl::slots) (cons nil (vector)))
                ;; If the class name couldn't be set while making the class, set it now
-               #-(or Genera Cloe-Runtime Lucid aclpc CCL-2) (setf (class-name class) class-name)))
-            ((not (or (equal (class-direct-superclasses class) direct-superclasses)
+
+               #-(or Genera aclpc ccl sbcl)
+               (setf (class-name class) class-name)))
+            ((not (or (equal (closer-mop:class-direct-superclasses class) direct-superclasses)
                       ;; The above equal would suffice if it were not for the fact that when
                       ;; a CLOS class in the compile-file environment has a superclass in the
                       ;; runtime environment, CLOS uses a forward-referenced-class instead
                       ;; of using the run-time class
                       (every #'(lambda (class type)
                                  (eq (class-proper-name class environment) type))
-                             (class-direct-superclasses class) supertypes-list)
+                             (c2mop:class-direct-superclasses class) supertypes-list)
                       (presentation-type-class-p class)))
              ;; Inheritance must be consistent between CLOS and CLIM classes,
              ;; but only when CLOS and CLIM use the same class object.
@@ -895,7 +865,7 @@
                    name supertypes-list class
                    (mapcar #'(lambda (class)
                                (class-proper-name class environment))
-                           (class-direct-superclasses class)))))
+                           (closer-mop:class-direct-superclasses class)))))
 
       ;; This used to be done only in the case where we were creating a class
       ;; "de novo".  However, CCL-2 currently doesn't record anything about
@@ -903,9 +873,11 @@
       ;; presentation class on this "registered" name instead of on the
       ;; official class name.  The following line hooks up the class and the
       ;; registered name at load time.  -- rsl & York, 4 June 1991
-      #+(or CCL-2 aclpc) (setf (gethash class *presentation-class-type-table*) registered-class-name
-                    ;;--- Should the following be done at compile time?  It's unclear.
-                    (find-class registered-class-name) class)
+      #+(or aclpc ccl sbcl)
+      (setf (gethash class *presentation-class-type-table*)
+            registered-class-name
+            ;;--- Should the following be done at compile time?  It's unclear.
+            (find-class registered-class-name) class)
       #+aclpc (setf (gethash class *presentation-class-name-table*)
                     name)
 
@@ -1011,64 +983,64 @@
 ;;; If there is parameterized inheritance, compile code to do it efficiently
 ;;; rather than interpreting the inheritance information at run time.
 (defun generate-map-over-presentation-type-supertypes-method-if-needed
-       (name class function-var parameters-var options-var type-var
-        &optional environment)
+    (name class function-var parameters-var options-var type-var
+     &optional environment)
   (let ((superclasses
-          #-(or aclpc allegro) (cdr (class-precedence-list class))
-          #+aclpc
-          (progn
-            (unless (acl:class-finalized-p class)
-              (acl:finalize-inheritance class))
-            (cdr (class-precedence-list class)))
-          #+allegro ;; Work around bug in CLOS compilation environments...
-          (multiple-value-bind (no-errorp result)
-              (excl:errorset (progn
-                               ;; Finalization is necessary according to AMOP. -smh 18may93
-                                 (unless (clos:class-finalized-p class)
-                                 (clos:finalize-inheritance class))
-                               (cdr (class-precedence-list class)))
-                             nil)
-            (if no-errorp
-                result
-                (return-from generate-map-over-presentation-type-supertypes-method-if-needed)))))
+         ;;#-(or allegro aclpc) (cdr (closer-mop:class-precedence-list class)) ;; FIXME dropping?
+         #+ (or aclpc ccl sbcl)
+         (progn
+           (unless (c2mop:class-finalized-p class)
+             (closer-mop:finalize-inheritance class))
+           (cdr (c2mop:class-precedence-list class)))
+         #+allegro ;; Work around bug in CLOS compilation environments...
+         (multiple-value-bind (no-errorp result)
+             (excl:errorset (progn
+                              ;; Finalization is necessary according to AMOP. -smh 18may93
+                              (unless (clos:class-finalized-p class)
+                                (clos:finalize-inheritance class))
+                              (cdr (class-precedence-list class)))
+                            nil)
+           (if no-errorp
+               result
+               (return-from generate-map-over-presentation-type-supertypes-method-if-needed)))))
     #+Minima (setq superclasses (elide-nonessential-superclasses superclasses))
     (multiple-value-bind (bindings alist)
         (generate-type-massagers class superclasses parameters-var options-var t environment)
       (unless (every #'(lambda (class)
                          (let ((massage-forms (cdr (assoc class alist))))
-                           (and (null (first massage-forms))                ;no parameters
-                                (null (second massage-forms)))))        ;no options
+                           (and (null (first massage-forms))     ;no parameters
+                                (null (second massage-forms))))) ;no options
                      superclasses)
         `((define-presentation-method-without-massaging
-                map-over-presentation-type-supertypes
-                (,parameters-var ,options-var (,type-var ,name) ,function-var)
-            ,parameters-var ,options-var        ;might not be used
+              map-over-presentation-type-supertypes
+              (,parameters-var ,options-var (,type-var ,name) ,function-var)
+            ,parameters-var ,options-var ;might not be used
             (funcall ,function-var ',name ,type-var)
             ,@(make-stack-list-bindings bindings
-                (mapcan #'(lambda (class)
-                            (let* ((massage-forms (cdr (assoc class alist)))
-                                   (parameters (first massage-forms))
-                                   (options (second massage-forms))
-                                   (type-name (class-presentation-type-name class)))
-                              (if (or options parameters)
-                                  (make-stack-list-bindings
-                                    `((type ,(if options
-                                                 (if (constantp parameters)
-                                                     (if (constantp options)
-                                                         `',(cons (cons type-name
-                                                                        (eval parameters))
-                                                                  (eval options))
-                                                         `(cons ',(cons type-name
-                                                                        (eval parameters))
-                                                                ,options))
-                                                     `(cons (cons ',type-name ,parameters)
-                                                            ,options))
-                                                 (if (constantp parameters)
-                                                     `',(cons type-name (eval parameters))
-                                                     `(cons ',type-name ,parameters)))))
-                                    `((funcall ,function-var ',type-name type)))
-                                  `((funcall ,function-var ',type-name ',type-name)))))
-                        superclasses))
+                                        (mapcan #'(lambda (class)
+                                                    (let* ((massage-forms (cdr (assoc class alist)))
+                                                           (parameters (first massage-forms))
+                                                           (options (second massage-forms))
+                                                           (type-name (class-presentation-type-name class)))
+                                                      (if (or options parameters)
+                                                          (make-stack-list-bindings
+                                                           `((type ,(if options
+                                                                        (if (constantp parameters)
+                                                                            (if (constantp options)
+                                                                                `',(cons (cons type-name
+                                                                                               (eval parameters))
+                                                                                         (eval options))
+                                                                                `(cons ',(cons type-name
+                                                                                               (eval parameters))
+                                                                                       ,options))
+                                                                            `(cons (cons ',type-name ,parameters)
+                                                                                   ,options))
+                                                                        (if (constantp parameters)
+                                                                            `',(cons type-name (eval parameters))
+                                                                            `(cons ',type-name ,parameters)))))
+                                                           `((funcall ,function-var ',type-name type)))
+                                                          `((funcall ,function-var ',type-name ',type-name)))))
+                                                superclasses))
             nil))))))
 
 ;;; Wrap some let* bindings around some forms
@@ -1113,7 +1085,6 @@
 ;;; The second value is a list of elements (class parameters-form options-form)
 (defun generate-type-massagers (class superclasses parameters-var options-var accuratep
                                 &optional environment)
-  (declare (values bindings alist))
   (let ((paths nil)
         (classes-seen nil)
         (class-bindings-used nil)        ;((class parameters-count options-count)...)
@@ -1122,7 +1093,7 @@
     (labels ((map-over-superclasses (function class &rest trail)
                (declare (dynamic-extent trail))
                (funcall function class trail)
-               (dolist (superclass (class-direct-superclasses class))
+               (dolist (superclass (closer-mop:class-direct-superclasses class))
                  (apply #'map-over-superclasses function superclass class trail)))
              (note-path (class trail)
                (unless (assoc class paths)
@@ -1277,7 +1248,6 @@
 ;;; if the length is 1, each value is just the list element, to save space in
 ;;; compiled files.
 (defun analyze-inherit-from (backquote parameters-ll options-ll)
-  (declare (values direct-supertypes parameter-massagers options-massagers))
   (multiple-value-bind (expansion parameters-bindings options-bindings)
       (meta-evaluate-form backquote parameters-ll options-ll)
     (with-presentation-type-decoded (expanded-name expanded-parameters expanded-options)
@@ -1373,12 +1343,12 @@
 (defun generate-presentation-type-inheritance-methods
     (name class parameters-var options-var &optional environment)
   (let ((superclasses
-         #-(or allegro aclpc) (cdr (class-precedence-list class))
-         #+aclpc
-          (progn
-            (unless (acl:class-finalized-p class)
-              (acl:finalize-inheritance class))
-            (cdr (class-precedence-list class)))
+         ;;#-(or allegro aclpc) (cdr (closer-mop:class-precedence-list class)) ;; FIXME dropping?
+         #+ (or aclpc ccl sbcl)
+         (progn
+           (unless (c2mop:class-finalized-p class)
+             (c2mop:finalize-inheritance class))
+           (cdr (c2mop:class-precedence-list class)))
          #+allegro ;; Work around bug in CLOS compilation environments...
          (multiple-value-bind (no-errorp result)
              (excl:errorset (progn
@@ -1489,7 +1459,7 @@
      (setf (gethash ',presentation-function-name *presentation-generic-function-table*)
            `(,',generic-function-name ,@',lambda-list))
      (defgeneric ,generic-function-name ,lambda-list
-       #-CCL-2
+       #-(and MCL CCL-2)
        (:generic-function-class presentation-generic-function)
        #+CLIM-extends-CLOS
        (:method-combination presentation-method-combination)
@@ -1534,24 +1504,26 @@
 
 ;;; Presentation generic functions have their own class just so we can define
 ;;; one method that aids in implementing presentation-method-combination
-#-CCL-2
-(eval-when (eval load compile)
+#-(and MCL CCL-2)
+(eval-when (:execute :load-toplevel :compile-toplevel)
 (defclass presentation-generic-function
           (standard-generic-function #+Minima-Developer standard-object)
   ()
-  (:metaclass funcallable-standard-class))
-)        ;end of (eval-when (eval load compile)
+  (:metaclass closer-mop:funcallable-standard-class))
+)        ;end of (eval-when (:execute :load-toplevel :compile-toplevel)
 
 #+CLIM-extends-CLOS
 (defvar *presentation-method-argument-class*)
 
-#+CLIM-extends-CLOS
+#+(and Genera CLIM-extends-CLOS)
 (defmethod clos-internals::compute-effective-method-1 :around
            ((generic-function presentation-generic-function)
             methods argument-function)
   (declare (ignore methods))
   (let ((*presentation-method-argument-class*
-          (ecase (first (clos:generic-function-lambda-list generic-function))
+          (ecase (first (#-Clozure clos:generic-function-lambda-list
+                         #+Clozure ccl:generic-function-lambda-list
+                         generic-function))
             (type-key (funcall argument-function
                                #-Minima-Developer 'class
                                #+Minima-Developer 'zl:::clos-internals::class
@@ -1579,7 +1551,7 @@
 ;;; extension to call-method
 ;;;--- If combined methods were generated during compile-file, this would need
 ;;;--- to get an environment argument from somewhere
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 (define-method-combination presentation-method-combination ()
       ((around (:around))
        (before (:before))
@@ -1589,9 +1561,9 @@
     (:generic-function generic-function)
   (setq after (reverse after))
   (labels ((method-class (method)
-             (let ((class (first (clos:method-specializers method))))
+             (let ((class (first (closer-mop:method-specializers method))))
                (if (consp class) (second class) class))))
-    (let* ((generic-function-name (clos:generic-function-name generic-function))
+    (let* ((generic-function-name (closer-mop:generic-function-name generic-function))
            (generic-lambda-list (block nil
                                   (maphash #'(lambda (key value)
                                                (declare (ignore key))
@@ -1605,7 +1577,7 @@
            (class *presentation-method-argument-class*))
       (multiple-value-bind (bindings alist)
           (generate-type-massagers class superclasses parameters options nil)
-        (labels ((call-method (method &optional (next-methods nil next-methods-p))
+        (labels ((magic-call-method (method &optional (next-methods nil next-methods-p))
                    (setq next-methods                ;massage call-next-method args also
                          (mapcar #'(lambda (method)
                                      (if (atom method)
@@ -1628,22 +1600,22 @@
                                            `(:next-methods ,next-methods)))
                          `(call-method ,method ,@(when next-methods-p
                                                    `(,next-methods))))))
-                 (call-methods (methods)
-                   (mapcar #'call-method methods)))
+                 (magic-call-methods (methods)
+                   (mapcar #'magic-call-method methods)))
           (let ((form (if (or before after (rest primary))
                           `(multiple-value-prog1
-                             (progn ,@(call-methods before)
-                                    ,(call-method (first primary) (rest primary)))
-                             ,@(call-methods (reverse after)))
-                          (call-method (first primary) ()))))
+                             (progn ,@(magic-call-methods before)
+                                    ,(magic-call-method (first primary) (rest primary)))
+                             ,@(magic-call-methods (reverse after)))
+                          (magic-call-method (first primary) ()))))
             (when around
-              (setq form (call-method (first around)
+              (setq form (magic-call-method (first around)
                                       `(,@(rest around)
                                         (make-method ,form)))))
             (if bindings
                 `(let* ,bindings ,form)
                 form)))))))
-)        ;end of (eval-when (compile load eval)
+)        ;end of (eval-when (:compile-toplevel :load-toplevel :execute)
 
 
 ;;;; Definitions of Presentation Generic Functions
@@ -1659,9 +1631,7 @@
             ;; &key &allow-other-keys allows methods to receive only the keyword arguments
             ;; that they are interested in.  We know the caller will never supply
             ;; misspelled keywords since only the CLIM system calls this.
-  #-(or aclpc acl86win32 CCL-2)
-  (declare (arglist type-key parameters options object type stream view
-                    &key acceptably for-context-type)))
+)
 
 (define-presentation-generic-function accept-method
                                       accept
@@ -1670,10 +1640,7 @@
             ;; &key &allow-other-keys allows methods to receive only the keyword arguments
             ;; that they are interested in.  We know the caller will never supply
             ;; misspelled keywords since only the CLIM system calls this.
-  #-(or aclpc acl86win32 CCL-2)
-  (declare (arglist type-key parameters options type stream view
-                    &key default default-type)
-           (values object type)))
+)
 
 (define-presentation-generic-function describe-presentation-type-method
                                       describe-presentation-type
@@ -1685,9 +1652,7 @@
 
 (define-presentation-generic-function presentation-subtypep-method
                                       presentation-subtypep
-  (type-key type putative-supertype)
-  #-(or aclpc CCL-2)
-  (declare (values subtype-p known-p)))
+  (type-key type putative-supertype))
 
 (define-presentation-generic-function presentation-type-history-method
                                       presentation-type-history
@@ -1699,9 +1664,7 @@
             ;; &key &allow-other-keys allows methods to receive only the keyword arguments
             ;; that they are interested in.  We know the caller will never supply
             ;; misspelled keywords since only the CLIM system calls this.
-  #-(or aclpc acl86win32 CCL-2)
-  (declare (arglist type-key default type &key default-type)
-           (values default default-type)))
+)
 
 (define-presentation-generic-function presentation-type-specifier-p-method
                                       presentation-type-specifier-p
@@ -1712,26 +1675,15 @@
   (type-key parameters options type
             stream view default default-supplied-p
             present-p query-identifier
-            &key &allow-other-keys)
-  #-(or aclpc acl86win32 CCL-2)
-  (declare (arglist type-key parameters options type
-                    stream view default default-supplied-p
-                    present-p query-identifier
-                    &key (prompt t) (active-p t))))
+            &key &allow-other-keys))
 
 (define-presentation-generic-function gadget-includes-prompt-p-method
                                       gadget-includes-prompt-p
-  (type-key parameters options type stream view)
-  #-(or aclpc acl86win32 CCL-2)
-  (declare (arglist type-key parameters options type stream view)))
+  (type-key parameters options type stream view))
 
 (define-presentation-generic-function decode-indirect-view-method
                                       decode-indirect-view
-  (type-key parameters options type view frame-manager &key &allow-other-keys)
-  #-(or aclpc acl86win32 CCL-2)
-  (declare (arglist type-key parameters options type
-                    view frame-manager
-                    &key query-identifier read-only)))
+  (type-key parameters options type view frame-manager &key &allow-other-keys))
 
 (define-presentation-generic-function presentation-refined-position-test-method
                                       presentation-refined-position-test
@@ -1751,7 +1703,6 @@
 ;;; lexical bindings of the presentation type parameters and options.
 (defmacro define-presentation-method (presentation-function-name &rest body
                                       &environment environment)
-  (declare (arglist presentation-function-name [qualifiers]* specialized-lambda-list &body body))
   (define-presentation-method-1 presentation-function-name body ':massage environment))
 
 ;;; The next level down from define-presentation-method, this doesn't create
@@ -1760,7 +1711,6 @@
 ;;; a type-key or type-class parameter.
 (defmacro define-presentation-method-without-massaging (presentation-function-name &rest body
                                                         &environment environment)
-  (declare (arglist presentation-function-name [qualifiers]* specialized-lambda-list &body body))
   (define-presentation-method-1 presentation-function-name body nil environment))
 
 ;;; Define a default method for a presentation generic function.
@@ -1768,7 +1718,6 @@
 ;;; There is no parameters/options processing, this macro just exists for abstraction.
 (defmacro define-default-presentation-method (presentation-function-name &rest body
                                               &environment environment)
-  (declare (arglist presentation-function-name [qualifiers]* specialized-lambda-list &body body))
   (define-presentation-method-1 presentation-function-name body ':default environment))
 
 ;;; Common subroutine of the three forms of define-presentation-method
@@ -1865,8 +1814,8 @@
                                    ((eq (class-name class) presentation-type-name)
                                     presentation-type-name)
                                    (t
-                                    #+(or CCL-2 aclpc) (gethash class *presentation-class-type-table*)
-                                    #-(or CCL-2 aclpc) class))))
+                                    #+(or (and MCL CCL-2) aclpc) (gethash class *presentation-class-type-table*)
+                                    #-(or (and MCL CCL-2) aclpc) class))))
                 (type-class `(,type-class-var
                               ,(cond ((eq kind ':default) `t)
                                      ((symbolp presentation-type-name)
@@ -1907,7 +1856,7 @@
   (remhash name *presentation-type-options-table*)
   (let ((class (find-presentation-type-class name nil)))
     (when class
-      #+(or CCL-2 aclpc) (remhash class *presentation-class-type-table*)
+      #+(or (and MCL CCL-2) aclpc) (remhash class *presentation-class-type-table*)
       (remhash class *presentation-type-parameters-table*)
       (remhash class *presentation-type-options-table*)
       (remhash class *presentation-type-inheritance-table*)

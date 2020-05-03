@@ -32,7 +32,9 @@
   nil)
 
 
-#-silica        ;--- no such slots in Silica
+;;; NOTE disabled for sbcl and ccl because :silica seems not to be in features anyway,
+;;; and this print-object is presently broken. -- jacek.zlydach 2017-05-14
+#- (or silica sbcl ccl)                             ;--- no such slots in Silica
 (defmethod print-object ((window window-stream) stream)
   (print-unreadable-object (window stream :type t :identity t)
     (let ((left (safe-slot-value window 'left))
@@ -40,6 +42,13 @@
           (right (safe-slot-value window 'right))
           (bottom (safe-slot-value window 'bottom)))
       (format stream "/x ~D:~D y ~D:~D/" left right top bottom))))
+
+;;; NOTE there doesn't seem to be anything interesting to show in REPL for this class.
+;;; Therefore, we revert to a default unreadable form.
+;;; -- jacek.zlydach 2017-05-27
+#+ (or silica sbcl ccl)
+(defmethod print-object ((window window-stream) stream)
+  (print-unreadable-object (window stream :type t :identity t)))
 
 (defmethod window-stream-class-name ((window-stream window-stream))
   (class-name (class-of window-stream)))

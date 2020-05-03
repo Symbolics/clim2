@@ -10,12 +10,12 @@
 
 ;; Ports and grafts
 
-(defvar *default-server-path* #+(and allegro (not microsoft)) '(:motif)
-                              #+Lucid '(:clx)
-                              #+Genera `(:genera)
-                              #+Cloe-Runtime `(:cloe)
-                              #+(and allegro microsoft) '(:aclpc)
-                              #-(or allegro Lucid Genera Cloe-Runtime) nil)
+(defvar *default-server-path*
+  #+(and allegro (not microsoft)) '(:motif)
+  #+Genera `(:genera)
+  #+Cloe-Runtime `(:cloe)
+  #+(and allegro microsoft) '(:aclpc)
+  #-(or allegro Lucid Genera Cloe-Runtime) '(:clx))
 
 
 (defvar *ports* nil)
@@ -114,7 +114,7 @@
     (setf (port-process port)
       (make-process 
        #'(lambda () (port-event-loop port))
-       :name (format nil "CLIM Event Dispatcher for ~A" 
+       :name (cl:format nil "CLIM Event Dispatcher for ~A" 
 		     (port-server-path port))))))
 
 
@@ -230,7 +230,6 @@
 
 (defun fit-region*-in-region* (left1 top1 right1 bottom1
                                left2 top2 right2 bottom2)
-  #+Genera (declare (values left1 top1 right1 bottom1 adjusted-p))
   (let* ((adjusted-p nil)
          (w (- right1 left1))
          (h (- bottom1 top1))
@@ -284,6 +283,7 @@
 ;;; ics kanji server support - we put this here for convenience
 ;;;--- consider putting in separate file (cim 2/26/96)
 
+#+Allegro
 (excl:ics-target-case
 (:+ics
 

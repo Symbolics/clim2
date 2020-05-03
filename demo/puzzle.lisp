@@ -40,14 +40,13 @@
 	  (frame-exit puzzle)
 	  command))))
 
-(define-presentation-type puzzle-cell ()
-  :inherit-from '(integer 1 15))
+(define-presentation-type puzzle-cell () :inherit-from '(integer 1 15))
 
 (define-presentation-method highlight-presentation ((type puzzle-cell) record stream state)
   state
   (multiple-value-bind (xoff yoff)
       (convert-from-relative-to-absolute-coordinates 
-	stream (output-record-parent record))
+       stream (output-record-parent record))
     (with-bounding-rectangle* (left top right bottom) record
       (draw-rectangle* stream
 		       (+ left xoff) (+ top yoff)

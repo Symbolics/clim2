@@ -48,7 +48,7 @@
 			       (reverse ,run-time-vals))
 	    ,wrapped-body)))))
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 (defun decode-once-only-arguments (variables)
   (let ((vars nil)
 	(env nil)
@@ -316,54 +316,12 @@
        (or (char-equal char #\Space)
 	   (eql char #\Tab))))
 
-;;; Make sure we don't get screwed by environments like Coral's that
-;;; have *print-case* set to :downcase by default.
-#+(or (not ansi-90) aclpc)
-(defvar *standard-io-environment-val-cache* nil)
-
-#+(or (not ansi-90) aclpc)
-(defun standard-io-environment-vars-and-vals ()
-  (unless *standard-io-environment-val-cache*
-    (setq *standard-io-environment-val-cache*
-	  (list 10				;*read-base*
-		(copy-readtable nil)		;*readtable*
-		(find-package :user)		;*package*
-		t				;*print-escape*
-		nil				;*print-pretty*
-		nil				;*print-radix*
-		10				;*print-base*
-		nil				;*print-circle*
-		nil				;*print-level*
-		nil				;*print-length*
-		:upcase				;*print-case*
-		t				;*print-gensym*
-		t				;*print-array*
-		nil)))				;*read-suppress*
-  (values
-    '(*read-base* *readtable* *package* *print-escape* *print-pretty*
-      *print-radix* *print-base* *print-circle* *print-level* *print-length*
-      *print-case* *print-gensym* *print-array* *read-suppress*)
-    *standard-io-environment-val-cache*))
-
-(defmacro with-standard-io-environment (&body body)
-  #+(or (not ansi-90) aclpc)
-  `(multiple-value-bind (vars vals)
-       (standard-io-environment-vars-and-vals)
-     (progv vars vals
-       ,@body))
-  #-(or (not ansi-90) aclpc)
-  `(with-standard-io-syntax ,@body))
-
-#+(and (or (not ansi-90) aclpc) (not Genera))
-(defmacro with-standard-io-syntax (&body body)
-  `(with-standard-io-environment ,@body))
-
 ;; Define this so we don't have to deal with stupid warnings about
 ;; the iteration variable being used, or not used, or what not
 (defmacro repeat (n &body body)
   (let ((i '#:i))
-    `(dotimes (,i ,n)
-       #-(or Minima Genera allegro) (declare (ignore i))
+    `(dotimes (,i ,n) i
+;       #-(or Minima Genera allegro) (declare (ignore i))
        ,@body)))
 
 
@@ -382,12 +340,13 @@
 
 #+(or (not clim-uses-lisp-stream-functions)	;Do this if we provide CLOSE function
       Genera					; Sigh.  CLOSE also shadowed for Genera.
-      CCL-2)					; Sigh.  CLOSE also shadowed for CCL-2.
+      (and MCL CCL-2)				; Sigh.  CLOSE also shadowed for CCL-2.
+      )
 (defmacro with-open-stream ((stream-variable construction-form) &body body &environment env)
   (let ((aborted-variable (gensymbol 'aborted-p))
 	(temporary-stream-variable (gensymbol 'stream)))
     (multiple-value-bind (documentation declarations actual-body)
-	(extract-declarations body env)
+	(extract-declarations body env) ;;; FIXME this here breaks file compilation on SBCL; should we compile this macro anyway? -- jacek.zlydach, 2017-05-06
       (declare (ignore documentation))
       `(let (,temporary-stream-variable
 	     (,aborted-variable t))
@@ -403,16 +362,10 @@
 
 (defun follow-synonym-stream (stream)
   #+Genera (si:follow-syn-stream stream)
-  #+(and ansi-90 (not Genera)) (typecase stream
-				 (synonym-stream
-				   (symbol-value (synonym-stream-symbol stream)))
-				 (t stream))
-  #-(or Genera ansi-90) stream)
-
-#-(or Genera ansi-90)
-(eval-when (compile)
-  (warn "You haven't defined ~S for this implementation.  A stub has been provided."
-	'follow-synonym-stream))
+  #-Genera (typecase stream
+             (synonym-stream
+              (symbol-value (synonym-stream-symbol stream)))
+             (t stream)))
 
 ;;; Interning. There are three places where the package matters here:
 ;;; the current package, the package that is current when FORMAT is
@@ -429,13 +382,13 @@
   ;; this argument order is unfortunate.
   (declare (dynamic-extent format-args))
   (intern (let ((pkg *package*))
-	    (with-standard-io-environment
+	    (with-standard-io-syntax
 		(let ((*package* pkg))
-		  (apply #'lisp:format () format-string
+		  (apply #'cl:format () format-string
 			 (mapcar #'(lambda (x)
-				     (excl::if* (symbolp x)
-					then (symbol-name x)
-					else x))
+                                     (if (symbolp x)
+                                         (symbol-name x)
+                                       x))
 				 format-args)))))
 	  package))
 
@@ -446,11 +399,11 @@
 
 (defvar *gensymbol* 0)
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 (defun gensymbol (&rest parts)
   (declare (dynamic-extent parts))
   (when (null parts) (setf parts '(gensymbol)))
-  (make-symbol (lisp:format nil "~{~A-~}~D" parts (incf *gensymbol*))))
+  (make-symbol (cl:format nil "~{~A-~}~D" parts (incf *gensymbol*))))
 )	;eval-when
 
 ;;; For macro writers; you can have your GENSYMBOLs start at 1.  Use
@@ -554,21 +507,24 @@
 	   (when ,condition-value (setf ,@unwind-forms)))))))
 
 #-(and ansi-90 (not allegro) (not Symbolics))
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (proclaim '(declaration non-dynamic-extent)))
 
 #+aclpc
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (proclaim '(declaration non-dynamic-extent ignorable)))
 
 #+(and ansi-90 (not allegro) (not aclpc) (not Symbolics))
-(define-declaration non-dynamic-extent (spec env)
+(#+Clozure ccl:define-declaration #-Clozure define-declaration
+           non-dynamic-extent (spec env)
   (let ((vars (rest spec))
         (result nil))
     (dolist (v vars)
       (block process-var
         (multiple-value-bind (type local info)
-                             (variable-information v env)
+                             (#+Clozure ccl:variable-information
+                              #-Clozure variable-information
+                              v env)
           (declare (ignore local))
           (case type
             (:lexical
@@ -627,8 +583,8 @@
 (defun-inline evacuate-list (list)
   (if (and (sys:%pointerp list)
 	   (not (or (sys:%pointer-lessp list sys:%control-stack-low)
-		    (sys:%pointer-lessp (progn #+3600  sys:%control-stack-limit
-					       #+imach (sys:%read-internal-register
+		    (sys:%pointer-lessp (progn #+(and Genera 3600)  sys:%control-stack-limit
+					       #+(and Genera imach) (sys:%read-internal-register
 							 sys:%register-control-stack-limit))
 					list))))
       (copy-list list)
@@ -650,7 +606,7 @@
       list))
 )	;#+Cloe-Runtime
 
-#+allegro
+#+Allegro
 (progn
 (defmacro with-stack-list ((var &rest elements) &body body)
   `(let ((,var (list ,@elements)))
@@ -670,7 +626,7 @@
 
 )	;#+Allegro
 
-#+CCL-2
+#+(and MCL CCL-2)
 (progn
 (defmacro with-stack-list ((var &rest elements) &body body)
   `(let ((,var (list ,@elements)))
@@ -689,9 +645,9 @@
               (listp list))
          (copy-list list))
         (t list)))
-)	;#+CCL-2
+)	;#+(and MCL CCL-2)
 
-#-(or Genera Cloe-Runtime allegro CCL-2)
+#-(or Genera Cloe-Runtime allegro (and MCL CCL-2))
 (progn
 (defmacro with-stack-list ((var &rest elements) &body body)
   `(let ((,var (list ,@elements)))
@@ -705,7 +661,7 @@
 ;; When stack-consing works for non-Genera/Cloe, make this do something.
 (defmacro evacuate-list (list)
   `,list)
-)	;#-(or Genera Cloe-Runtime allegro)
+)	;#-(or Genera Cloe-Runtime allegro (and MCL CCL-2))
 
 #+Genera
 (defmacro with-stack-array ((name size &rest options) &body body)
@@ -910,7 +866,6 @@
 
 (defun canonicalize-and-match-lambda-lists (canonical-order user-specified
 					    &optional allow-user-keys)
-  (declare (values lambda-list ignores))
   (check-type canonical-order list)
   (check-type user-specified list)
   (let* ((new-lambda-list nil)
@@ -966,9 +921,9 @@
 #-Genera
 (defmacro defun-property ((symbol indicator) lambda-list &body body)
   (let ((function-name
-	  (make-symbol (lisp:format nil "~A-~A-~A" symbol indicator 'property))))
+	  (make-symbol (cl:format nil "~A-~A-~A" symbol indicator 'property))))
     `(progn (defun ,function-name ,lambda-list ,@body)
-	    (eval-when (load eval) (setf (get ',symbol ',indicator) #',function-name)))))
+	    (eval-when (:load-toplevel :execute) (setf (get ',symbol ',indicator) #',function-name)))))
 
 (defmacro do-delimited-substrings (((string &key (start 0) end)
 				    (start-index-var end-index-var &optional char-var))
@@ -1121,12 +1076,6 @@
 					     ,arglist)))))))))
 
 
-#-(or Genera (and ansi-90 (not (and allegro (not (version>= 4 1))))))
-(defmacro define-compiler-macro (name lambda-list &body body &environment env)
-  env
-  #+allegro `(excl::defcmacro ,name ,lambda-list ,@body)
-  #-(or Genera allegro) (progn name lambda-list body env nil))	;Suppress compiler warnings.
-
 #+aclpc
 (defmacro define-compiler-macro (name lambda-list &body body &environment env)
   env
@@ -1141,52 +1090,6 @@
   (mapc #'compiler:function-defined (cdr decl)))
 
 
-#-(or Genera ansi-90)
-(defmacro print-unreadable-object ((object stream &key type identity) &body body)
-  `(flet ((print-unreadable-object-body () ,@body))
-     (declare (dynamic-extent #'print-unreadable-object-body))
-     (print-unreadable-object-1 ,object ,stream ,type ,identity
-				#'print-unreadable-object-body
-				',(not (null body)))))
-
-#-(or Genera ansi-90)
-;;; EXTRA-SPACE-REQUIRED is optional because old compiled code didn't always supply it.
-(defun print-unreadable-object-1 (object stream type identity continuation
-					 &optional (extra-space-required t))
-  (write-string "#<" stream)
-  ;; wish TYPE-OF worked in PCL
-  (when type (lisp:format stream "~S " (class-name (class-of object))))
-  (funcall continuation)
-  (when identity
-    (when extra-space-required (write-char #\space stream))
-    (#+PCL pcl::printing-random-thing-internal	;; I assume PCL gets this right. -- rsl
-     #-PCL print-unreadable-object-identity
-     object stream))
-  (write-string ">" stream))
-
-#-(or PCL Genera ansi-90)
-(defun print-unreadable-object-identity (object stream)
-  #+Genera (format stream "~O" (sys:%pointer object))
-  #+allegro (format stream "@~X" (excl::pointer-to-address object))
-  ;; Lucid prints its addresses out in Hex.
-  #+Lucid (format stream "~X" (sys:%pointer object))
-  ;; Probably aren't any #+(and (not Genera) (not allegro) (not PCL) (not ansi-90))
-  ;; implementations (actually, this is false: Lispworks).
-  #-(or Genera allegro Lucid) (declare (ignore object))
-  #-(or Genera allegro Lucid) (format stream "???"))
-
-#-(or Genera ansi-90 Lucid)
-(defvar *print-readably* nil)
-
-#-(or Genera Lucid ansi-90)
-(deftype real (&optional (min '*) (max '*))
-  (labels ((convert (limit floatp)
-	     (typecase limit
-	       (number (if floatp (float limit 0f0) (rational limit)))
-	       (list (map 'list #'convert limit))
-	       (otherwise limit))))
-    `(or (float ,(convert min t) ,(convert max t))
-	 (rational ,(convert min nil) ,(convert max nil)))))
 
 #+Genera-Release-8-1
 (defun realp (x)
@@ -1345,8 +1248,10 @@
 ;;; to FIND-CLASS.  There is no run-time error, it really does accept three arguments.
 (defun find-class-that-works (name &optional (errorp t) environment)
   #+Genera (declare (inline compile-file-environment-p))
-  #+ccl-2 (when (eq environment 'compile-file)
-            (setq environment ccl::*fcomp-compilation-environment*))
+  #+(and MCL CCL-2) (when (eq environment 'compile-file)
+                      (setq environment ccl::*fcomp-compilation-environment*))
+  #+Clozure (when (eql environment 'compile-file)
+              (setq environment (ccl::augment-environment nil)))
   #+allegro (let ((environment (compile-file-environment-p environment)))
 	      (if environment
 	          (or (find-class name nil environment)
@@ -1360,7 +1265,7 @@
 	        (find-class name errorp environment)))
 
 #+(and allegro never-never-and-never)
-(eval-when (compile)
+(eval-when (:compile-toplevel)
   (warn "~S hacked for lack of environment support in 4.1" 'find-class-that-works))
 
 
@@ -1402,7 +1307,6 @@
 ;; The idiom for using this is
 ;; (MULTIPLE-VALUE-SETQ (VECTOR FP) (SIMPLE-VECTOR-PUSH-EXTEND ELEMENT VECTOR FP)).
 (defun simple-vector-push-extend (element vector fill-pointer &optional extension)
-  (declare (values vector fill-pointer))
   (declare (type fixnum fill-pointer)
 	   (type simple-vector vector))
   (let ((length (array-dimension vector 0)))
@@ -1419,7 +1323,6 @@
     (values vector fill-pointer)))
 
 (defun simple-vector-insert-element (element index vector fill-pointer &optional extension)
-  (declare (values vector fill-pointer))
   (declare (type fixnum index fill-pointer)
 	   (type simple-vector vector))
   (let ((length (array-dimension vector 0)))
@@ -1460,12 +1363,10 @@
 ;;; on the <Abort> key.  Note that in Allegro, this choice ends up as an ordinary
 ;;; proceed option, but in Lucid it ends up on ":A".
 (defmacro with-simple-abort-restart ((format-string &rest format-args) &body body)
-  #{
-    Genera `(scl:catch-error-restart ((sys:abort) ,format-string ,@format-args)
-	      ,@body)
-    otherwise `(with-simple-restart (abort ,format-string ,@format-args)
-		 ,@body)
-   }
+  #+Genera `(scl:catch-error-restart ((sys:abort) ,format-string ,@format-args)
+             ,@body)
+  #-Genera `(with-simple-restart (abort ,format-string ,@format-args)
+             ,@body)
   )
 
 (defmacro with-simple-abort-restart-if (condition (format-string &rest format-args) &body body)
@@ -1642,11 +1543,12 @@
 ;;;
 
 ;;; This is here to limit need for FF package to compile time.
+#+Allegro
 (defun system-free (x) (excl:free x))
 
 ;;; ALLOCATE-CSTRUCT was adapted from ff:make-cstruct.
 ;;; We aren't using ff:make-cstruct because it uses excl:aclmalloc.
-#-mswindows
+#+(and Allegro (not mswindows))
 (defun allocate-cstruct (name &key
 			      (number 1)
 			      (initialize
@@ -1659,6 +1561,7 @@
     (when initialize (setq initialize 0))
     (allocate-memory size initialize)))
 
+#+Allegro
 (defun allocate-memory (size init)
   ;; Used only by ALLOCATE-CSTRUCT.
   (let ((pointer (excl:malloc size)))
@@ -1676,6 +1579,7 @@
 ;;; aclmalloc.
 ;; This now uses the slightly slower (locale-correct) way of
 ;; converting to octets first, then copying to foreign space.
+#+Allegro
 (defun string-to-foreign (string &optional address)
   "Convert a Lisp string to a C string, by copying."
   (declare (optimize (speed 3))

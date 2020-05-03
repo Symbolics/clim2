@@ -360,7 +360,7 @@
                  (diacritic-char-p character)
                  ;; Special case so that we don't lozenge this.  It is up to
                  ;; the caller to have established the correct text style.
-                 #+CCL-2 (eql character #\CommandMark))
+                 #+(and MCL CCL-2) (eql character #\CommandMark))
              (let ((medium (sheet-medium stream)))
                (dotimes (i 2)
                  (multiple-value-bind (no-wrap new-cursor-x new-baseline new-height
@@ -587,7 +587,6 @@
 
 (defmethod text-size ((stream output-protocol-mixin) string
                       &key (text-style (medium-merged-text-style stream)) (start 0) end)
-  (declare (values largest-x total-height last-x last-y baseline))
   (when (characterp string)
     (setq string (string string)
           start 0
@@ -602,7 +601,6 @@
 ;;; useful as that might be.
 (defmethod stream-string-output-size ((stream output-protocol-mixin)
                                       string &key (start 0) end text-style)
-  (declare (values last-x largest-x last-y total-height baseline))
   (when (characterp string) (setq string (string string)))
   (unless end (setf end (length string)))
   (let ((style (or text-style (medium-merged-text-style stream)))
@@ -725,7 +723,6 @@
 
 ;; Damnable string streams!
 (defmethod text-size ((stream t) string &key text-style (start 0) end)
-  (declare (values largest-x total-height last-x last-y baseline))
   (declare (ignore text-style))
   (let ((char-width 8)
         (line-height 12)
@@ -769,8 +766,6 @@
 ;;; A few utilities for string writing.
 
 (defmethod decode-stream-for-writing ((stream output-protocol-mixin) &optional brief-p)
-  (declare (values cursor-x cursor-y baseline line-height
-                   style max-x record-p draw-p glyph-buffer))
   (multiple-value-bind (cursor-x cursor-y) (stream-cursor-position stream)
     (let ((baseline (stream-baseline stream))
           (line-height (stream-current-line-height stream))
@@ -806,7 +801,6 @@
                                            (medium medium)
                                            string start end style
                                            cursor-x max-x &optional glyph-buffer)
-  (declare (values write-char next-char-index new-cursor-x new-baseline new-height font))
   (declare (type coordinate cursor-x max-x))
   (declare (type fixnum start end))
   (block stream-scan-string-for-writing
@@ -898,7 +892,6 @@
 ;;; characters; they are handled in WRITE-CHAR instead.
 (defmethod stream-scan-character-for-writing ((stream output-protocol-mixin) medium
                                               character style cursor-x max-x)
-  (declare (values char-normal new-cursor-x new-baseline new-height font))
   (declare (type coordinate cursor-x max-x))
   (multiple-value-bind (index font escapement-x escapement-y origin-x origin-y bb-x bb-y)
       (port-glyph-for-character (port medium) character style)
@@ -926,7 +919,6 @@
 
 (defmethod stream-handle-line-wrap ((stream output-protocol-mixin) cursor-y height max-x
                                     draw-p record-p)
-  (declare (values cursor-x cursor-y baseline line-height))
   (when record-p (stream-close-text-output-record stream t))
   (when draw-p
     (draw-character-wrap-indicator stream cursor-y height max-x record-p))
@@ -1069,8 +1061,7 @@
                                        string start end
                                        cursor-x cursor-y height baseline style max-x)
   ;; Continuation is a function which takes L T R B Baseline
-  (declare (dynamic-extent continuation)
-           (values new-cursor-x new-cursor-y new-height new-baseline))
+  (declare (dynamic-extent continuation))
   (unless start (setq start 0))
   (unless end (setq end (length string)))
   (let ((vsp (stream-vertical-spacing stream))

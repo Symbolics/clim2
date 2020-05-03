@@ -43,7 +43,7 @@
      (mapping-cache :initform
 		    #+(or aclpc acl86win32) (cons nil nil)
 		    #-(or aclpc acl86win32) (mapping-cache-initform))
-#+(or aclpc acl86win32)
+#+(or aclpc acl86win32 (and))
      (undefined-text-style :initform *undefined-text-style*
                            :accessor port-undefined-text-style)
      ;; When this is true, the text style to device font mapping is done
@@ -64,7 +64,7 @@
 ;;;; NOTE: ics-target-case used in defclass forms causes source file
 ;;;; recording warnings.
 
-#-(or aclpc acl86win32) 
+#+(and Allegro (not (or aclpc acl86win32)))
 (defun mapping-table-initform ()
   (excl:ics-target-case
    (:+ics (let ((v (make-array 4 :adjustable t)))
@@ -74,7 +74,13 @@
 	    v))
    (:-ics (make-hash-table :test #'equal))))
 
-#-(or aclpc acl86win32) 
+;;; NOTE temporary definition to make examples work; not sure
+;;; what implementation would be right. -- jacek.zlydach, 2017-05-06
+#+ (or sbcl ccl)
+(defun mapping-table-initform ()
+  (make-hash-table :test #'equal))
+
+#+(and Allegro (not (or aclpc acl86win32)))
 (defun mapping-cache-initform ()
   (excl:ics-target-case
    (:+ics (let ((v (make-array 4 :adjustable t)))
@@ -83,6 +89,12 @@
 		(cons nil nil)))
 	    v))
    (:-ics (cons nil nil))))
+
+;;; NOTE temporary definition to make examples work; not sure
+;;; what implementation would be right. -- jacek.zlydach, 2017-05-06
+#+ (or sbcl ccl)
+(defun mapping-cache-initform ()
+  (cons nil nil))
 
 (define-protocol-class sheet ())
 
@@ -147,7 +159,9 @@
                 *keyword-package*))))
 
 ;; A fixnum, incremented only with ATOMIC-INCF
-(defvar *event-timestamp* 0)
+(declaim (type fixnum *event-timestamp*))
+#+sbcl (sb-ext:defglobal *event-timestamp* 0)
+#-sbcl (defvar *event-timestamp* 0)
 
 (define-event-class event ()
   ((timestamp :reader event-timestamp
@@ -212,7 +226,7 @@
   (print-unreadable-object (event stream :type t)
     (when (slot-boundp event 'region)
       (with-bounding-rectangle* (left top right bottom) (window-event-region event)
-         (format stream "/x ~D:~D y ~D:~D/" left right top bottom)))))
+         (cl:format stream "/x ~D:~D y ~D:~D/" left right top bottom)))))
 
 (define-event-class window-configuration-event (window-event) ())
 (define-event-class window-repaint-event (window-event) ())
@@ -234,7 +248,7 @@
 #+(or aclpc acl86win32)
 (define-event-class window-change-event (pointer-button-event) ;was window-event
   ((mswin-control :reader event-mswin-control :initarg :mswin-control)))
-#+(or aclpc acl86win32)
+
 (define-event-class window-close-event (window-event) ())
 
 ;;; Values used in event objects
@@ -244,7 +258,7 @@
 (defconstant +pointer-right-button+  (ash 1 10))
 
 ;; The order of this must match the values above
-(defconstant *pointer-buttons* '#(:left :middle :right))
+(defparameter *pointer-buttons* '#(:left :middle :right))
 
 (deftype button-name () '(member :left :middle :right))
 
@@ -260,7 +274,7 @@
 (defconstant +double-key+  (ash 1 5))
 
 ;; The order of this must match the values above
-(defconstant *modifier-keys* '#(:shift :control :meta :super :hyper :double))
+(defparameter *modifier-keys* '#(:shift :control :meta :super :hyper :double))
 
 (deftype shift-keysym   () '(member :left-shift :right-shift))
 (deftype double-keysym  () '(member :left-double :right-double))

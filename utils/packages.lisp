@@ -13,10 +13,7 @@
   #+allegro (:implementation-packages :clim-lisp :clim-utils)
   ;; 28Jan97 added allegro package for aclpc since mop stuff was moved
   ;; there in 3.0.1 -tjm
-  (:use common-lisp #+allegro clos
-	#+(and (version>= 9 0) allegro) excl
-	#-(and (version>= 9 0) allegro) stream
-	#+aclpc allegro)
+  (:use common-lisp trivial-gray-streams)
 
  ;; Import these symbols so that we can define methods for them.
  (:shadow pathname truename)
@@ -26,6 +23,17 @@
 
  #+allegro
  (:import-from :excl #:non-dynamic-extent)
+
+ #+Clozure
+ (:import-from :ccl #:atomic-incf #:atomic-decf
+               ;#:class-direct-superclasses #:class-precedence-list
+               )
+
+ (:import-from :closer-mop
+               :class-prototype
+               :class-precedence-list
+               :class-direct-superclasses
+               :class-direct-subclasses)
 
  (:export
    &allow-other-keys
@@ -1010,23 +1018,12 @@
    zerop)
 
  ;; Stream Proposal -- Classes and class predicates.
- #-clim-uses-lisp-stream-classes
  (:shadow
-   fundamental-binary-input-stream
-   fundamental-binary-output-stream
-   fundamental-binary-stream
-   fundamental-character-input-stream
-   fundamental-character-output-stream
-   fundamental-character-stream
-   fundamental-input-stream
-   fundamental-output-stream
-   fundamental-stream
    input-stream-p
    open-stream-p
    output-stream-p
    streamp)
 
- #-(or clim-uses-lisp-stream-functions Lucid)
  (:shadow
    clear-input
    clear-output
@@ -2814,7 +2811,6 @@
     with-stack-copy-of-list
     with-stack-list
     with-stack-list*
-    with-standard-io-environment
     with-warnings-for-definition
     writing-clauses
 
@@ -2999,7 +2995,7 @@
     modifier-key-index-name))
 
 #+(or aclpc acl86win32)
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
  (intern '#:non-dynamic-extent (find-package :clim-utils)))
 
 (defpackage clim-silica
@@ -3025,7 +3021,7 @@
     *ports*
     *standard-character-set*
     *all-character-sets*
-    #+(or aclpc acl86win32) *undefined-text-style*
+    #+(or aclpc acl86win32 (and)) *undefined-text-style*
     +highlighting-line-style+
     activate-gadget-event
     add-sheet-callbacks
@@ -3178,7 +3174,7 @@
     port-set-sheet-grabbed-pointer-cursor
     port-terminated
     port-trace-thing
-    #+(or aclpc acl86win32) port-undefined-text-style
+    #+(or aclpc acl86win32 (and)) port-undefined-text-style
     process-event-locally
     pull-down-menu
     pull-down-menu-button
@@ -3245,6 +3241,7 @@
     viewport-contents-extent
     viewport-region-changed
     window-shift-visible-region
+    window-close-event
     with-medium-clipping-region
     with-menu-as-popup
     with-mouse-grabbed-in-window
@@ -3292,12 +3289,13 @@
 
 (in-package :clim)
 
+#+Allegro
 (cl:defparameter *clim-version* excl::*common-lisp-version-number*)
 
-#+(version>= 5 0)
+#+(and Allegro (version>= 5 0))
 (cl:locally (cl:declare (cl:special excl::*version-info*))
   (cl:when (cl:boundp 'excl::*version-info*)
     (cl:push (cl:cons "CLIM" *clim-version*) excl::*version-info*)))
 
-#+(version>= 6 0 pre-final 0)
+#+(and allegro (version>= 6 0 pre-final 0))
 (excl::lb1215005) ;; rfe4046

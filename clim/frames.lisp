@@ -138,7 +138,7 @@
                                   (frame standard-application-frame))
   (adjust-layout-requirements frame (frame-current-layout frame)))
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 (defun define-application-frame-1 (name state-variables pane-descriptions
                                    &key top-level layouts
                                         command-table)
@@ -233,7 +233,7 @@
                                `',layout)))
                        layouts))))
       `(progn
-         (eval-when (compile)
+         (eval-when (:compile-toplevel)
            (when ',command-table
              (setf (compile-time-property ',(first command-table) 'command-table-name) t))
            (define-application-frame-1 ',name ',slots ,pane-constructors
@@ -511,7 +511,7 @@
         (flet ((reset-sr (sheet)
                  (when (panep sheet)
                    (change-space-requirements-to-default sheet))))
-          (declare (dynamic-extent #'adjust-layout))
+          (declare (dynamic-extent #'adjust-layout-requirements))
           (map-over-sheets #'reset-sr (frame-panes frame))
           (dolist (pane-and-sr layout-space-requirements)
             (let ((name (car pane-and-sr)))
@@ -537,7 +537,7 @@
     (setq frame-class frame-name))
   (when (or left top right bottom width height)
     (when (getf options :geometry)
-      (error "Cannot specify ~S and ~S, S, ~S, ~S, ~S, or ~S at the same time"
+      (error "Cannot specify ~S and ~S, ~S, ~S, ~S, ~S, or ~S at the same time"
              :geometry :left :top :right :bottom :width :height))
     (macrolet ((check-conflict (edge1 edge2 size)
                  `(cond
@@ -907,69 +907,69 @@
 
 (defmethod default-frame-top-level ((frame standard-application-frame)
                                     &key command-parser command-unparser
-                                         partial-command-parser
-                                         (prompt "Command: "))
+                                      partial-command-parser
+                                      (prompt "Command: "))
   (unless (eq (frame-state frame) :enabled)
     (enable-frame frame))
   (loop
-    (let* ((*standard-output*
-	    (or (frame-standard-output frame) *standard-output*))
-	   (*standard-input*
-	    (or (frame-standard-input frame) *standard-input*))
-	   (*query-io*
-	    (or (frame-query-io frame) *query-io*))
-	   (*error-output*
-	    (or (frame-error-output frame) *error-output*))
-	   (*pointer-documentation-output*
-	    (frame-pointer-documentation-output frame))
-	   (interactor
-	    (not (null (find-frame-pane-of-type frame 'interactor-pane))))
-	   (*command-parser*
-	    (or command-parser
-		(if interactor
-		    #'command-line-command-parser
-		  #'menu-command-parser)))
-	   (*command-unparser*
-	    (or command-unparser
-		#'command-line-command-unparser))
-	   (*partial-command-parser*
-	    (or partial-command-parser
-		(if interactor
-		    #'command-line-read-remaining-arguments-for-partial-command
-		  #'menu-read-remaining-arguments-for-partial-command)))
-	   (command-stream
-	    ;;--- We have to ask the frame since we do not want to
-	    ;;--- just pick up a stream from the dynamic environment
-	    (let ((si (or (frame-standard-input frame)
-			  (frame-standard-output frame))))
-	      (typecase si
-		(output-protocol-mixin si)
-		(t (frame-top-level-sheet frame)))))
-	   (*avv-refreshed* nil))
-      ;; The read-eval-print loop for applications...
-      (letf-globally (((frame-actual-pointer-documentation-pane frame)
-		       *pointer-documentation-output*))
-	(loop
-	  ;; Redisplay all the panes
-	  (catch-abort-gestures ("Return to ~A command level" (frame-pretty-name frame))
-	    (redisplay-frame-panes frame)
-	    (when (not *avv-refreshed*) 
-	      ;;; This needs to happen after the 
-	      ;;; call to redisplay-frame-panes
-	      ;;; but only do it the first time.
-	      (force-refresh-avv-streams frame)
-	      (setq *avv-refreshed* t))
-	    (when interactor
-	      (fresh-line *standard-input*)
-	      (if (stringp prompt)
-		  (write-string prompt *standard-input*)
-		(funcall prompt *standard-input* frame)))
-	    (let ((command (read-frame-command frame :stream command-stream)))
-	      (when interactor
-		(terpri *standard-input*))
-	      ;; Need this check in case the user aborted out of a command menu
-	      (when command
-		(execute-frame-command frame command)))))))))
+     (let* ((*standard-output*
+             (or (frame-standard-output frame) *standard-output*))
+            (*standard-input*
+             (or (frame-standard-input frame) *standard-input*))
+            (*query-io*
+             (or (frame-query-io frame) *query-io*))
+            (*error-output*
+             (or (frame-error-output frame) *error-output*))
+            (*pointer-documentation-output*
+             (frame-pointer-documentation-output frame))
+            (interactor
+             (not (null (find-frame-pane-of-type frame 'interactor-pane))))
+            (*command-parser*
+             (or command-parser
+                 (if interactor
+                     #'command-line-command-parser
+                     #'menu-command-parser)))
+            (*command-unparser*
+             (or command-unparser
+                 #'command-line-command-unparser))
+            (*partial-command-parser*
+             (or partial-command-parser
+                 (if interactor
+                     #'command-line-read-remaining-arguments-for-partial-command
+                     #'menu-read-remaining-arguments-for-partial-command)))
+            (command-stream
+             ;;--- We have to ask the frame since we do not want to
+             ;;--- just pick up a stream from the dynamic environment
+             (let ((si (or (frame-standard-input frame)
+                           (frame-standard-output frame))))
+               (typecase si
+                 (output-protocol-mixin si)
+                 (t (frame-top-level-sheet frame)))))
+            (*avv-refreshed* nil))
+       ;; The read-eval-print loop for applications...
+       (letf-globally (((frame-actual-pointer-documentation-pane frame)
+                        *pointer-documentation-output*))
+         (loop
+            ;; Redisplay all the panes
+            (catch-abort-gestures ("Return to ~A command level" (frame-pretty-name frame))
+              (redisplay-frame-panes frame)
+              (when (not *avv-refreshed*) 
+;;; This needs to happen after the 
+;;; call to redisplay-frame-panes
+;;; but only do it the first time.
+                (force-refresh-avv-streams frame)
+                (setq *avv-refreshed* t))
+              (when interactor
+                (fresh-line *standard-input*)
+                (if (stringp prompt)
+                    (write-string prompt *standard-input*)
+                    (funcall prompt *standard-input* frame)))
+              (let ((command (read-frame-command frame :stream command-stream)))
+                (when interactor
+                  (terpri *standard-input*))
+                ;; Need this check in case the user aborted out of a command menu
+                (unless (member command '(nil :timeout))
+                  (execute-frame-command frame command)))))))))
 
 (defmethod force-refresh-avv-streams (frame)
   ;;; NOTE:  Not using get-frame-pane-to-avv-stream-table.
@@ -1370,7 +1370,7 @@
   (process-command-event sheet event))
 
 ;;;#+(or aclpc acl86win32)
-;;;(eval-when (compile load eval)
+;;;(eval-when (:compile-toplevel :load-toplevel :execute)
 ;;;   ;;mm: 11Jan95 - this is defined later in  ???
 ;;;   (unless (ignore-errors (find-class 'activity-frame))
 ;;;      (defclass activity-frame () ())))
@@ -1489,23 +1489,23 @@
 
 (defun find-frame-pane-of-type (frame type)
   (map-over-sheets #'(lambda (sheet)
-                       (when (typep sheet type)
-                         (return-from find-frame-pane-of-type sheet)))
-                   (frame-top-level-sheet frame)))
+                        (when (typep sheet type)
+                          (return-from find-frame-pane-of-type sheet)))
+                          (frame-top-level-sheet frame)))
 
 (defmethod frame-standard-output ((frame standard-application-frame))
-  (if (not (member '*standard-output* (slot-value frame 
-						  'non-frame-stream-names)))
-      (or 
+  (if (not (member '*standard-output* (slot-value frame
+                                                  'non-frame-stream-names)))
+      (or
        (find-frame-pane-of-type frame 'application-pane)
        (find-frame-pane-of-type frame 'interactor-pane))
       nil))
 
 (defmethod frame-standard-input ((frame standard-application-frame))
   (if (not (member '*standard-input* (slot-value frame 
-						  'non-frame-stream-names)))
+                                                 'non-frame-stream-names)))
       (or (find-frame-pane-of-type frame 'interactor-pane)
-	  (frame-standard-output frame))))
+          (frame-standard-output frame))))
   
 (defmethod frame-query-io ((frame standard-application-frame))
   (if (not (member '*query-io* (slot-value frame 
